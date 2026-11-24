@@ -41,9 +41,23 @@ class PillNotificationService : NotificationListenerService() {
         }
     }
 
+    private var watchdog: Job? = null
+
     override fun onListenerConnected() {
         super.onListenerConnected()
         instance = this
+        // Ασφάλεια: πρόοδος που δεν ενημερώθηκε για 90 s ή ειδοποίηση που δεν υπάρχει πια, φεύγει.
+        watchdog?.cancel()
+        watchdog = Island.scope.launch {
+            while (true) {
+                delay(15_000)
+                val live = try { activeNotifications?.map { it.key }?.toSet() } catch (_: Throwable) { null } ?: continue
+                val now = System.currentTimeMillis()
+                Island.state.value.items
+                    .filter { it.notifKey != null && (it.notifKey !in live || ((it.kind == Kind.PROGRESS) && now - it.postedAt > 90_000)) }
+                    .forEach { Island.remove(it.id) }
+            }
+        }
         try {
             msm = getSystemService(MediaSessionManager::class.java)
             val cn = ComponentName(this, PillNotificationService::class.java)
@@ -58,6 +72,7 @@ class PillNotificationService : NotificationListenerService() {
     }
 
     override fun onListenerDisconnected() {
+        watchdog?.cancel()
         try { msm?.removeOnActiveSessionsChangedListener(sessionsListener) } catch (_: Throwable) {}
         setController(null)
         if (instance === this) instance = null
@@ -193,6 +208,21 @@ class PillNotificationService : NotificationListenerService() {
             pkg = pkg, contentIntent = n.contentIntent, notifKey = sbn.key, postedAt = sbn.postTime,
         )
 
+        val prev = Island.state.value.items.firstOrNull { it.id == id }
+        val done = pMax > 0 && pCur >= pMax
+        val stillProgress = (pMax > 0 && !done && (ongoing || promoted)) || (pInd && ongoing)
+        // Η λήψη/πρόοδος τελείωσε ή η ειδοποίηση άλλαξε μορφή: φεύγει το παλιό.
+        if (prev != null && (prev.kind == Kind.PROGRESS || prev.kind == Kind.LIVE) && !stillProgress && !promoted) {
+            Island.remove(id)
+            Island.flash(
+                base.copy(
+                    id = id + ":done", kind = Kind.INFO, feature = Feature.PROGRESS, title = title.ifEmpty { prev.title },
+                    subtitle = "Ολοκληρώθηκε", progress = null, actions = emptyList(),
+                ), 2f
+            )
+            return
+        }
+
         when {
             isCall -> {
                 val incoming = n.fullScreenIntent != null && !showChrono
@@ -209,7 +239,7 @@ class PillNotificationService : NotificationListenerService() {
             showChrono && ongoing -> Island.upsert(
                 base.copy(kind = Kind.TIMER, feature = Feature.TIMER, priority = 60, chronoBase = n.`when`, countDown = countDown)
             )
-            (pMax > 0 && (ongoing || promoted)) || (pInd && ongoing) -> Island.upsert(
+            stillProgress -> Island.upsert(
                 base.copy(
                     kind = if (promoted) Kind.LIVE else Kind.PROGRESS,
                     feature = if (promoted) Feature.LIVE else Feature.PROGRESS,
