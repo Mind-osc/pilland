@@ -407,6 +407,20 @@ object Island {
         }
     }
 
+    private var seqJob: Job? = null
+
+    /** Δείχνει 3 διαδοχικές στιγμές για να φαίνεται καθαρά η μετάβαση. */
+    fun demoSequence() {
+        seqJob?.cancel()
+        seqJob = scope.launch {
+            demo(Kind.NOTIFICATION)
+            delay(1600)
+            flash(IslandItem("seq_bt", Kind.BLUETOOTH, Feature.BLUETOOTH, title = "Galaxy Buds", subtitle = "Συνδέθηκε", value = 80, accent = Color(0xFF64D2FF)), 1.8f)
+            delay(1600)
+            flash(IslandItem("seq_ch", Kind.CHARGING, Feature.CHARGING, title = "Φόρτιση", value = state.value.battery.coerceAtLeast(1), flag = true, accent = Color(0xFF34C759)), 2f)
+        }
+    }
+
     fun clearDemos() {
         state.update { s -> s.copy(items = s.items.filterNot { it.id.startsWith("demo") || it.id == INT_TIMER || it.id == INT_WATCH || (it.id == "media" && media.value?.pkg == "demo") }) }
         if (media.value?.pkg == "demo") media.value = null

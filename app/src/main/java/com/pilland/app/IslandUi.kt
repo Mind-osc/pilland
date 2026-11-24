@@ -367,13 +367,17 @@ private fun AnimatedContentTransitionScope<Display>.islandTransition(cfg: Settin
     val outMs = (140 / sp).toInt()
     val delayMs = (70 / sp).toInt()
     return when (cfg.transitionStyle) {
-        1 -> (slideInVertically(spring(damp, stiff)) { -it / 2 } + fadeIn(tween(inMs, delayMs))) togetherWith
-            (slideOutVertically(tween(outMs)) { it / 3 } + fadeOut(tween(outMs)))
-        2 -> fadeIn(tween(inMs + 80, delayMs)) togetherWith fadeOut(tween(outMs + 60))
-        3 -> (scaleIn(spring(damp, stiff), initialScale = 1.35f) + fadeIn(tween(inMs, delayMs))) togetherWith
-            (scaleOut(tween(outMs), targetScale = 0.7f) + fadeOut(tween(outMs)))
-        else -> (scaleIn(spring(damp, stiff), initialScale = 0.78f) + fadeIn(tween(inMs, delayMs))) togetherWith
-            (scaleOut(tween(outMs), targetScale = 0.92f) + fadeOut(tween(outMs)))
+        // Slide: το νέο έρχεται από πάνω, το παλιό φεύγει προς τα κάτω
+        1 -> (slideInVertically(spring(0.8f, (stiff * 0.8f).coerceAtLeast(120f))) { -it } + fadeIn(tween(inMs))) togetherWith
+            (slideOutVertically(tween((outMs * 1.8f).toInt())) { it } + fadeOut(tween((outMs * 1.8f).toInt())))
+        // Fade: αργό, απαλό crossfade χωρίς κίνηση
+        2 -> fadeIn(tween((520 / sp).toInt(), (120 / sp).toInt())) togetherWith fadeOut(tween((380 / sp).toInt()))
+        // Pop: «σκάει» από μεγάλο με έντονο ελατήριο
+        3 -> (scaleIn(spring(0.42f, (stiff * 1.2f).coerceAtLeast(200f)), initialScale = 1.6f) + fadeIn(tween(inMs / 2))) togetherWith
+            (scaleOut(tween(outMs), targetScale = 0.4f) + fadeOut(tween(outMs)))
+        // Zoom: μεγαλώνει από το κέντρο
+        else -> (scaleIn(spring(damp, stiff), initialScale = 0.45f) + fadeIn(tween(inMs, delayMs))) togetherWith
+            (scaleOut(tween(outMs), targetScale = 1.2f) + fadeOut(tween(outMs)))
     }.using(SizeTransform(clip = false))
 }
 

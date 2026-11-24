@@ -255,10 +255,10 @@ private fun SettingsScreen(resumeTick: Int) {
                 SliderRow("Ταχύτητα", cfg.animSpeed, 0.5f..2f, "%.2fx") { v -> Prefs.update { it.copy(animSpeed = v) } }
                 Spacer(Modifier.height(6.dp))
                 Label("Μετάβαση περιεχομένου")
-                Choice(listOf("Zoom", "Slide", "Fade", "Pop"), cfg.transitionStyle) { v -> Prefs.update { it.copy(transitionStyle = v) } }
+                Choice(listOf("Zoom", "Slide", "Fade", "Pop"), cfg.transitionStyle) { v -> Prefs.update { it.copy(transitionStyle = v) }; Island.demoSequence() }
                 SwitchRow("Blur στις μεταβάσεις", cfg.blurTransitions) { v -> Prefs.update { it.copy(blurTransitions = v) } }
                 SwitchRow("Δόνηση (haptics)", cfg.haptics) { v -> Prefs.update { it.copy(haptics = v) } }
-                SmallButton("Δοκίμασε την κίνηση") { Island.demo(Kind.NOTIFICATION) }
+                SmallButton("Δοκίμασε την κίνηση") { Island.demoSequence() }
             }
         }
 
