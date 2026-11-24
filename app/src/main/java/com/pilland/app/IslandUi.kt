@@ -153,16 +153,16 @@ fun islandSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
             Kind.UNLOCK -> max(h * 2.6f, cfg.compactWidth * 0.62f) to h
             else -> (cfg.compactWidth + 76f) to h
         }
-        Mode.PEEK -> w to (h + 68f)
-        Mode.PANEL -> w to (h + 178f)
+        Mode.PEEK -> w to (h + 76f)
+        Mode.PANEL -> w to (h + 204f)
         Mode.EXPANDED -> w to (h + when (item?.kind) {
-            Kind.MEDIA -> 156f
-            Kind.CALL -> 92f
-            Kind.TIMER, Kind.STOPWATCH -> 104f
-            Kind.TORCH -> 96f
-            Kind.NOTIFICATION -> 108f + (if (reply) 52f else 0f)
-            Kind.PROGRESS, Kind.LIVE -> 100f + (if (reply) 52f else 0f)
-            else -> 80f
+            Kind.MEDIA -> 164f
+            Kind.CALL -> 100f
+            Kind.TIMER, Kind.STOPWATCH -> 112f
+            Kind.TORCH -> 104f
+            Kind.NOTIFICATION -> 116f + (if (reply) 52f else 0f)
+            Kind.PROGRESS, Kind.LIVE -> 108f + (if (reply) 52f else 0f)
+            else -> 88f
         })
     }
 }
@@ -469,15 +469,19 @@ private fun IdleContent(cfg: Settings, s: IslandState, fg: Color) {
     }
 }
 
+/** Απόσταση περιεχομένου από τις άκρες στις μεγάλες κάρτες (ακολουθεί τη γωνία). */
+private val EDGE = 24.dp
+
 /** Ζώνη στο ύψος της κάμερας: αριστερά & δεξιά από την τρύπα. */
 @Composable
 private fun CameraBand(
     height: Dp,
     left: @Composable RowScope.() -> Unit,
     right: @Composable RowScope.() -> Unit,
+    side: Dp = EDGE,
 ) {
     Row(
-        Modifier.fillMaxWidth().height(height).padding(horizontal = 10.dp),
+        Modifier.fillMaxWidth().height(height).padding(horizontal = side),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Start, content = left)
@@ -632,6 +636,7 @@ private fun CompactContent(item: IslandItem, cfg: Settings, media: MediaInfo?, a
     val badge = h - 10.dp
     CameraBand(
         h,
+        side = 5.dp,
         left = {
             SmallBadge(item, media, accent, fg, badge)
             if (wide && item.kind != Kind.UNLOCK) {
@@ -643,6 +648,7 @@ private fun CompactContent(item: IslandItem, cfg: Settings, media: MediaInfo?, a
             }
         },
         right = {
+            Spacer(Modifier.width(1.dp))
             when (item.kind) {
                 Kind.MEDIA -> if (cfg.visualizer) Visualizer(media?.playing ?: item.flag, accent) else
                     Icon(if (media?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = fg, modifier = Modifier.size(20.dp))
@@ -691,8 +697,8 @@ private fun PeekContent(item: IslandItem, cfg: Settings, accent: Color, fg: Colo
             },
             right = { Text("τώρα", color = fg.copy(alpha = 0.5f), fontSize = cfg.ts(11.5f)) }
         )
-        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            NotifIcon(item, accent, 44.dp)
+        Row(Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE), verticalAlignment = Alignment.CenterVertically) {
+            NotifIcon(item, accent, 42.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(item.title, color = fg, fontSize = cfg.ts(14.5f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -741,7 +747,6 @@ private fun ExpandedContent(item: IslandItem, cfg: Settings, s: IslandState, med
         CameraBand(
             h,
             left = {
-                Spacer(Modifier.width(6.dp))
                 Text(
                     if (item.kind == Kind.MEDIA) media?.appName ?: item.appName else item.appName.ifEmpty { kindLabel(item.kind) },
                     color = fg.copy(alpha = 0.65f), fontSize = cfg.ts(11.5f), maxLines = 1, overflow = TextOverflow.Ellipsis
@@ -750,10 +755,9 @@ private fun ExpandedContent(item: IslandItem, cfg: Settings, s: IslandState, med
             right = {
                 if (item.kind == Kind.MEDIA) Visualizer(media?.playing == true, accent)
                 else Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
-                Spacer(Modifier.width(6.dp))
             }
         )
-        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, bottom = 18.dp)) {
             when (item.kind) {
                 Kind.MEDIA -> MediaExpanded(item, cfg, media, accent, fg)
                 Kind.CALL -> {
@@ -1018,7 +1022,6 @@ private fun PanelContent(cfg: Settings, s: IslandState, accent: Color, fg: Color
         CameraBand(
             h,
             left = {
-                Spacer(Modifier.width(6.dp))
                 Text("Pilland", color = fg, fontSize = cfg.ts(13f), fontWeight = FontWeight.Bold)
             },
             right = {
@@ -1032,7 +1035,7 @@ private fun PanelContent(cfg: Settings, s: IslandState, accent: Color, fg: Color
                 ) { Icon(Icons.Rounded.Settings, null, tint = fg.copy(alpha = 0.8f), modifier = Modifier.size(18.dp)) }
             }
         )
-        Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             quickTiles.chunked(4).forEachIndexed { row, tiles ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     tiles.forEachIndexed { col, t ->
@@ -1056,7 +1059,7 @@ private fun PanelContent(cfg: Settings, s: IslandState, accent: Color, fg: Color
                                         }
                                     }
                                 }
-                                .padding(vertical = 9.dp),
+                                .padding(vertical = 10.dp, horizontal = 2.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(t.icon, null, tint = if (active) Color.White else fg, modifier = Modifier.size(22.dp))
