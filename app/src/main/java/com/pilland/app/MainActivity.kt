@@ -734,7 +734,7 @@ private fun ShortcutsSection(cfg: Settings, onAddApp: () -> Unit) {
         Spacer(Modifier.height(6.dp))
         SmallButton("＋ Προσθήκη εφαρμογής") { onAddApp() }
         Spacer(Modifier.height(8.dp))
-        SliderRow("Σκουρότητα κάρτας", cfg.shortcutsDark * 100f, 30f..100f, "%.0f%%") { v ->
+        SliderRow("Σκουρότητα (συντομεύσεις & πάνελ)", cfg.shortcutsDark * 100f, 30f..100f, "%.0f%%") { v ->
             Prefs.update { it.copy(shortcutsDark = v / 100f) }
             if (!Island.state.value.shortcuts) Island.openShortcuts()
         }
