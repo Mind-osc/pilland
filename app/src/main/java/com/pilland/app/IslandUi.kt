@@ -165,13 +165,12 @@ fun islandSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
     }
 }
 
-/** Πλάτος (dp) του μικρού νησιού ανάλογα με το τι δείχνει. Συμμετρικό γύρω από την κάμερα. */
-fun compactWidthFor(item: IslandItem, cfg: Settings): Float {
+/** Πλάτος (dp) του περιεχομένου δεξιά της κάμερας. */
+private fun rightContentWidth(item: IslandItem, cfg: Settings): Float {
     val h = cfg.pillHeight
     val ts = cfg.textScale
     fun txt(chars: Int, sp: Float) = chars * sp * 0.62f * ts
-    val left = h - 10f
-    val right = when (item.kind) {
+    return when (item.kind) {
         Kind.MEDIA -> if (cfg.visualizer) 30f else 20f
         Kind.TIMER, Kind.STOPWATCH -> {
             val base = item.chronoBase ?: 0L
@@ -187,16 +186,45 @@ fun compactWidthFor(item: IslandItem, cfg: Settings): Float {
         Kind.BLUETOOTH -> if (item.value != null) txt(4, 13f) + 6f + 24f else txt(item.subtitle.length, 12f)
         Kind.UNLOCK -> 0f
         else -> min(txt(item.title.length, 13f), 120f)
-    } + 6f
-    val auto = 2 * max(left, right) + h * 0.95f + 10f
-    return if (cfg.autoWidth) auto.coerceIn(h * 2.4f, 380f) else cfg.compactWidth
+    }
+}
+
+fun isAsym(cfg: Settings) = cfg.autoWidth && cfg.asymCompact
+
+/** Μισό κενό γύρω από την τρύπα της κάμερας στο ασύμμετρο νησάκι. */
+fun camGapHalf(cfg: Settings) = cfg.pillHeight * 0.36f
+
+/** Απόσταση (dp) αριστερής / δεξιάς άκρης από το κέντρο της κάμερας. */
+fun compactExtents(item: IslandItem, cfg: Settings): Pair<Float, Float> {
+    val h = cfg.pillHeight
+    val left = h - 10f
+    val right = rightContentWidth(item, cfg) + 6f
+    if (isAsym(cfg)) {
+        val g = camGapHalf(cfg)
+        val l = 5f + left + g
+        val r = max(g + right + 5f, h / 2f + 4f)
+        return l to r
+    }
+    val w = if (cfg.autoWidth) (2 * max(left, right) + h * 0.95f + 10f).coerceIn(h * 2.4f, 380f) else cfg.compactWidth
+    return w / 2f to w / 2f
+}
+
+fun compactWidthFor(item: IslandItem, cfg: Settings): Float = compactExtents(item, cfg).let { it.first + it.second }
+
+/** Μετατόπιση (dp) του κέντρου του νησιού σε σχέση με την κάμερα. */
+fun islandOffsetX(d: Display, cfg: Settings): Float {
+    val it = d.item ?: return 0f
+    if (d.mode != Mode.COMPACT && d.mode != Mode.WIDE) return 0f
+    val (l, r) = compactExtents(it, cfg)
+    return (r - l) / 2f
 }
 
 fun islandWindowSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
     val (w, h) = islandSize(d, cfg, reply)
     val pad = IslandService.WINDOW_PAD
     val side = if (d.secondary != null && cfg.splitBubble) (cfg.pillHeight + 10f) * 2 else 0f
-    return (w + side + pad * 2) to (h + pad * 2)
+    val shift = abs(islandOffsetX(d, cfg)) * 2f
+    return (w + shift + side + pad * 2) to (h + pad * 2)
 }
 
 fun accentFor(item: IslandItem?, cfg: Settings, media: MediaInfo?): Color {
@@ -251,6 +279,7 @@ fun IslandView(
     val w by animateDpAsState(tw.dp, spring(damp, stiff), label = "w")
     val h by animateDpAsState(th.dp, spring(damp, stiff), label = "h")
     val r by animateDpAsState((targetRadius * radiusPct).dp, spring(damp, stiff), label = "r")
+    val ox by animateDpAsState(islandOffsetX(d, cfg).dp, spring(damp, stiff), label = "ox")
     val invisible = d.mode == Mode.HIDDEN || (d.mode == Mode.IDLE && cfg.idleStyle == 0)
     val alpha by animateFloatAsState(if (invisible) 0f else 1f, tween((260 / cfg.animSpeed).toInt()), label = "a")
     var pressed by remember { mutableStateOf(false) }
@@ -275,7 +304,7 @@ fun IslandView(
         // δευτερεύουσα φούσκα (split)
         val sec = d.secondary
         val showSec = sec != null && cfg.splitBubble && (d.mode == Mode.COMPACT || d.mode == Mode.WIDE)
-        val secOffset by animateDpAsState(if (showSec) (tw / 2f + 6f + cfg.pillHeight / 2f).dp else 0.dp, spring(damp, stiff), label = "so")
+        val secOffset by animateDpAsState(if (showSec) (islandOffsetX(d, cfg) + tw / 2f + 6f + cfg.pillHeight / 2f).dp else 0.dp, spring(damp, stiff), label = "so")
         AnimatedVisibility(
             visible = showSec,
             enter = scaleIn(spring(damp, stiff), initialScale = 0.2f) + fadeIn(),
@@ -298,6 +327,7 @@ fun IslandView(
 
         Box(
             Modifier
+                .offset(x = ox)
                 .graphicsLayer {
                     scaleX = pressScale; scaleY = pressScale
                     this.alpha = alpha
@@ -659,13 +689,9 @@ private fun MiniBattery(level: Int, color: Color, fg: Color) {
 private fun CompactContent(item: IslandItem, cfg: Settings, media: MediaInfo?, accent: Color, fg: Color, wide: Boolean) {
     val h = cfg.pillHeight.dp
     val badge = h - 10.dp
-    CameraBand(
-        h,
-        side = 5.dp,
-        left = {
-            SmallBadge(item, media, accent, fg, badge)
-        },
-        right = {
+    val asym = isAsym(cfg)
+    val g = camGapHalf(cfg).dp
+    val rightContent: @Composable RowScope.() -> Unit = {
             when (item.kind) {
                 Kind.MEDIA -> if (cfg.visualizer) Visualizer(media?.playing ?: item.flag, accent) else
                     Icon(if (media?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = fg, modifier = Modifier.size(20.dp))
@@ -698,8 +724,18 @@ private fun CompactContent(item: IslandItem, cfg: Settings, media: MediaInfo?, a
                 else -> Text(item.title, color = fg, fontSize = cfg.ts(13f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(6.dp))
+    }
+    if (asym) {
+        // εικονίδιο | κάμερα | περιεχόμενο → μεγαλώνει μόνο δεξιά
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(5.dp))
+            SmallBadge(item, media, accent, fg, badge)
+            Spacer(Modifier.width(g * 2))
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Start, content = rightContent)
         }
-    )
+    } else {
+        CameraBand(h, side = 5.dp, left = { SmallBadge(item, media, accent, fg, badge) }, right = rightContent)
+    }
 }
 
 @Composable

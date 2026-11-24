@@ -71,6 +71,8 @@ data class Settings(
     val pillHeight: Float = 36f,
     val compactWidth: Float = 210f,
     val autoWidth: Boolean = true,
+    /** Το μικρό νησάκι μεγαλώνει μόνο προς τα δεξιά της κάμερας. */
+    val asymCompact: Boolean = true,
     val expandedWidth: Float = 360f,
     val cornerPercent: Float = 100f,
     // Εμφάνιση
@@ -160,6 +162,7 @@ object Prefs {
             pillHeight = sp.getFloat("pillHeight", d.pillHeight),
             compactWidth = sp.getFloat("compactWidth", d.compactWidth),
             autoWidth = sp.getBoolean("autoWidth", d.autoWidth),
+            asymCompact = sp.getBoolean("asymCompact", d.asymCompact),
             expandedWidth = sp.getFloat("expandedWidth", d.expandedWidth),
             cornerPercent = sp.getFloat("cornerPercent", d.cornerPercent),
             idleStyle = sp.getInt("idleStyle", d.idleStyle),
@@ -206,6 +209,7 @@ object Prefs {
             .putFloat("pillHeight", s.pillHeight)
             .putFloat("compactWidth", s.compactWidth)
             .putBoolean("autoWidth", s.autoWidth)
+            .putBoolean("asymCompact", s.asymCompact)
             .putFloat("expandedWidth", s.expandedWidth)
             .putFloat("cornerPercent", s.cornerPercent)
             .putInt("idleStyle", s.idleStyle)
