@@ -43,6 +43,25 @@ class PillNotificationService : NotificationListenerService() {
 
     private var watchdog: Job? = null
 
+    /** Λήψη που μόλις εξαφανίστηκε· περιμένουμε την ειδοποίηση «ολοκληρώθηκε». */
+    private data class PendingDone(val pkg: String, val item: IslandItem, val at: Long)
+    private var pendingDone: PendingDone? = null
+    private var pendingJob: Job? = null
+
+    private val failWords = listOf("απέτυχ", "ακυρώθ", "σφάλμα", "fail", "cancel", "error", "paused", "παύση")
+
+    private fun showDownloadDone(src: IslandItem, fileName: String, open: android.app.PendingIntent?) {
+        val acts = if (open != null) listOf(IslandAction("Όχι", key = "moment:dismiss"), IslandAction("Άνοιγμα", intent = open)) else emptyList()
+        Island.flash(
+            src.copy(
+                id = (src.notifKey ?: src.id) + ":done", kind = Kind.NOTIFICATION, feature = Feature.PROGRESS,
+                title = "Η λήψη ολοκληρώθηκε", subtitle = fileName, progress = null, indeterminate = false,
+                actions = acts, contentIntent = open, autoExpand = open != null, postedAt = System.currentTimeMillis(),
+            ), 10f
+        )
+        Util.vibrate(longArrayOf(0, 25, 60, 25))
+    }
+
     override fun onListenerConnected() {
         super.onListenerConnected()
         instance = this
@@ -84,7 +103,23 @@ class PillNotificationService : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        main.post { Island.removeByNotifKey(sbn.key) }
+        main.post {
+            val it = Island.state.value.items.firstOrNull { i -> i.notifKey == sbn.key && i.kind == Kind.PROGRESS }
+            Island.removeByNotifKey(sbn.key)
+            if (it != null) {
+                pendingDone = PendingDone(sbn.packageName, it, System.currentTimeMillis())
+                pendingJob?.cancel()
+                // Αν δεν έρθει νέα ειδοποίηση αλλά η λήψη είχε σχεδόν τελειώσει, δείξε την κάρτα ούτως ή άλλως
+                pendingJob = Island.scope.launch {
+                    delay(1_800)
+                    val p = pendingDone ?: return@launch
+                    if (p.item.notifKey == sbn.key && (p.item.progress ?: 0f) >= 0.9f) {
+                        pendingDone = null
+                        showDownloadDone(p.item, p.item.subtitle.ifEmpty { p.item.title }, p.item.contentIntent)
+                    }
+                }
+            }
+        }
     }
 
     // ---------------- media ----------------
@@ -209,27 +244,30 @@ class PillNotificationService : NotificationListenerService() {
             pkg = pkg, contentIntent = n.contentIntent, notifKey = sbn.key, postedAt = sbn.postTime,
         )
 
+        // Νέα ειδοποίηση από την ίδια εφαρμογή αμέσως μετά το τέλος μιας λήψης = «ολοκληρώθηκε»
+        val pd = pendingDone
+        if (pd != null && pd.pkg == pkg && System.currentTimeMillis() - pd.at < 6_000 && !ongoing) {
+            pendingDone = null
+            pendingJob?.cancel()
+            val all = (title + " " + text).lowercase()
+            if (failWords.none { all.contains(it) }) {
+                val file = when {
+                    text.isNotBlank() && !text.contains("ολοκληρ") && !text.lowercase().contains("complete") -> text
+                    else -> pd.item.subtitle.ifEmpty { pd.item.title }
+                }
+                showDownloadDone(pd.item.copy(icon = icon ?: pd.item.icon, appIcon = appIcon ?: pd.item.appIcon), file, n.contentIntent ?: pd.item.contentIntent)
+            }
+            return
+        }
+
         val prev = Island.state.value.items.firstOrNull { it.id == id }
         val done = pMax > 0 && pCur >= pMax
         val stillProgress = (pMax > 0 && !done && (ongoing || promoted)) || (pInd && ongoing)
         // Η λήψη/πρόοδος τελείωσε ή η ειδοποίηση άλλαξε μορφή: φεύγει το παλιό.
         if (prev != null && (prev.kind == Kind.PROGRESS || prev.kind == Kind.LIVE) && !stillProgress && !promoted) {
             Island.remove(id)
-            val open = n.contentIntent ?: prev.contentIntent
-            val acts = buildList {
-                if (open != null) add(IslandAction("Όχι", key = "moment:dismiss"))
-                if (open != null) add(IslandAction("Άνοιγμα", intent = open))
-            }
-            Island.flash(
-                base.copy(
-                    id = id + ":done", kind = Kind.NOTIFICATION, feature = Feature.PROGRESS,
-                    title = "Η λήψη ολοκληρώθηκε",
-                    subtitle = (prev.subtitle.ifEmpty { prev.title }).ifEmpty { title },
-                    progress = null, indeterminate = false, actions = acts,
-                    contentIntent = open, autoExpand = open != null,
-                ), 10f
-            )
-            Util.vibrate(longArrayOf(0, 25, 60, 25))
+            val failed = failWords.any { (title + " " + text).lowercase().contains(it) }
+            if (!failed) showDownloadDone(prev, (prev.subtitle.ifEmpty { prev.title }).ifEmpty { title }, n.contentIntent ?: prev.contentIntent)
             return
         }
 
