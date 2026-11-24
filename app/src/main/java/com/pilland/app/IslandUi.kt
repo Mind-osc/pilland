@@ -302,7 +302,12 @@ fun IslandView(
 
     val accent = accentFor(d.item, cfg, media)
     val frostOn = cfg.frost && (d.mode == Mode.SHORTCUTS || d.mode == Mode.PANEL)
-    val bgA by animateFloatAsState(if (frostOn) min(cfg.bgAlpha, 0.58f) else cfg.bgAlpha, tween(260), label = "bga")
+    val bgTarget = when {
+        d.mode == Mode.SHORTCUTS -> cfg.shortcutsDark
+        frostOn -> min(cfg.bgAlpha, 0.58f)
+        else -> cfg.bgAlpha
+    }
+    val bgA by animateFloatAsState(bgTarget, tween(260), label = "bga")
     val frostK by animateFloatAsState(if (frostOn) 1f else 0f, tween(260), label = "fr")
     val bg = Color(cfg.bgColor).copy(alpha = bgA)
     val fg = if (Color(cfg.bgColor).luminance() > 0.5f) Color.Black else Color.White

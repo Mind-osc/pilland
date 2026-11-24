@@ -91,6 +91,8 @@ data class Settings(
     val shadow: Boolean = true,
     /** Θαμπό γυαλί στις συντομεύσεις και στο πάνελ. */
     val frost: Boolean = true,
+    /** Σκουρότητα (αδιαφάνεια) της κάρτας συντομεύσεων. */
+    val shortcutsDark: Float = 0.58f,
     val textScale: Float = 1f,
     val splitBubble: Boolean = true,
     val visualizer: Boolean = true,
@@ -191,6 +193,7 @@ object Prefs {
             glowAnimated = sp.getBoolean("glowAnimated", d.glowAnimated),
             shadow = sp.getBoolean("shadow", d.shadow),
             frost = sp.getBoolean("frost", d.frost),
+            shortcutsDark = sp.getFloat("shortcutsDark", d.shortcutsDark),
             textScale = sp.getFloat("textScale", d.textScale),
             splitBubble = sp.getBoolean("splitBubble", d.splitBubble),
             visualizer = sp.getBoolean("visualizer", d.visualizer),
@@ -242,6 +245,7 @@ object Prefs {
             .putBoolean("glowAnimated", s.glowAnimated)
             .putBoolean("shadow", s.shadow)
             .putBoolean("frost", s.frost)
+            .putFloat("shortcutsDark", s.shortcutsDark)
             .putFloat("textScale", s.textScale)
             .putBoolean("splitBubble", s.splitBubble)
             .putBoolean("visualizer", s.visualizer)
