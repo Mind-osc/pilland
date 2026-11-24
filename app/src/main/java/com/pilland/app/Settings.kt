@@ -106,6 +106,8 @@ data class Settings(
     val hidePausedMedia: Boolean = true,
     val lowBatteryLevel: Int = 15,
     val autoExpandCalls: Boolean = true,
+    /** Μετά την απάντηση: μικρό νησάκι με διάρκεια (true) ή τίποτα (false). */
+    val showOngoingCall: Boolean = true,
     // Χειρονομίες
     val gestureTap: Int = GestureAction.TOGGLE_EXPAND,
     val gestureDoubleTap: Int = GestureAction.NONE,
@@ -194,6 +196,7 @@ object Prefs {
             hidePausedMedia = sp.getBoolean("hidePausedMedia", d.hidePausedMedia),
             lowBatteryLevel = sp.getInt("lowBatteryLevel", d.lowBatteryLevel),
             autoExpandCalls = sp.getBoolean("autoExpandCalls", d.autoExpandCalls),
+            showOngoingCall = sp.getBoolean("showOngoingCall", d.showOngoingCall),
             gestureTap = sp.getInt("gestureTap", d.gestureTap),
             gestureDoubleTap = sp.getInt("gestureDoubleTap", d.gestureDoubleTap),
             gestureLong = sp.getInt("gestureLong", d.gestureLong),
@@ -242,6 +245,7 @@ object Prefs {
             .putBoolean("hidePausedMedia", s.hidePausedMedia)
             .putInt("lowBatteryLevel", s.lowBatteryLevel)
             .putBoolean("autoExpandCalls", s.autoExpandCalls)
+            .putBoolean("showOngoingCall", s.showOngoingCall)
             .putInt("gestureTap", s.gestureTap)
             .putInt("gestureDoubleTap", s.gestureDoubleTap)
             .putInt("gestureLong", s.gestureLong)

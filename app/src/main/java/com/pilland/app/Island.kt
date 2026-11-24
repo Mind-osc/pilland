@@ -456,6 +456,10 @@ object Island {
             a.intent != null -> {
                 Util.sendPending(a.intent)
                 if (item?.kind == Kind.NOTIFICATION) clearMoment()
+                if (item?.kind == Kind.CALL) {
+                    collapse()
+                    if (!Prefs.value.showOngoingCall) remove(item.id)
+                }
             }
         }
     }

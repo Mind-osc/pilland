@@ -271,6 +271,7 @@ private fun SettingsScreen(resumeTick: Int) {
                 SwitchRow("Απόκρυψη στην οθόνη κλειδώματος", cfg.hideLockscreen) { v -> Prefs.update { it.copy(hideLockscreen = v) } }
                 SwitchRow("Κρύψε τη μουσική όταν είναι σε παύση", cfg.hidePausedMedia) { v -> Prefs.update { it.copy(hidePausedMedia = v) } }
                 SwitchRow("Αυτόματο άνοιγμα σε εισερχόμενη κλήση", cfg.autoExpandCalls) { v -> Prefs.update { it.copy(autoExpandCalls = v) } }
+                SwitchRow("Μετά την απάντηση: μικρό νησάκι με διάρκεια", cfg.showOngoingCall) { v -> Prefs.update { it.copy(showOngoingCall = v) } }
             }
         }
 

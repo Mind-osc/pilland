@@ -236,6 +236,14 @@ class PillNotificationService : NotificationListenerService() {
         when {
             isCall -> {
                 val incoming = n.fullScreenIntent != null && !showChrono
+                if (!incoming && prev?.kind == Kind.CALL) {
+                    // Απαντήθηκε: κλείνει η μεγάλη κάρτα
+                    if (Island.state.value.expandedId == id) Island.collapse()
+                }
+                if (!incoming && !cfg.showOngoingCall) {
+                    Island.remove(id)
+                    return
+                }
                 Island.upsert(
                     base.copy(
                         kind = Kind.CALL, feature = Feature.CALL, priority = 100,
