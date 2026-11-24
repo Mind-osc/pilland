@@ -207,6 +207,7 @@ private fun SettingsScreen(resumeTick: Int) {
             Section("Θέση & μέγεθος", Icons.Rounded.PhotoSizeSelectSmall) {
                 SliderRow("Οριζόντια μετατόπιση", cfg.offsetX, -80f..80f, "%.0f dp") { v -> Prefs.update { it.copy(offsetX = v) } }
                 SliderRow("Κάθετη μετατόπιση", cfg.offsetY, -30f..80f, "%.0f dp") { v -> Prefs.update { it.copy(offsetY = v) } }
+                SliderRow("Απόσταση από την κάμερα", cfg.cameraGap, 8f..40f, "%.0f dp") { v -> Prefs.update { it.copy(cameraGap = v) } }
                 SliderRow("Ύψος", cfg.pillHeight, 24f..56f, "%.0f dp") { v -> Prefs.update { it.copy(pillHeight = v) } }
                 SwitchRow("Αυτόματο πλάτος (ανάλογα με το περιεχόμενο)", cfg.autoWidth) { v -> Prefs.update { it.copy(autoWidth = v) } }
                 if (cfg.autoWidth) SwitchRow("Μεγαλώνει μόνο προς τα δεξιά (χωρίς κενό αριστερά)", cfg.asymCompact) { v -> Prefs.update { it.copy(asymCompact = v) } }

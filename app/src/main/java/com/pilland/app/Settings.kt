@@ -73,6 +73,8 @@ data class Settings(
     val autoWidth: Boolean = true,
     /** Το μικρό νησάκι μεγαλώνει μόνο προς τα δεξιά της κάμερας. */
     val asymCompact: Boolean = true,
+    /** Απόσταση (dp) του περιεχομένου από το κέντρο της κάμερας. */
+    val cameraGap: Float = 20f,
     val expandedWidth: Float = 360f,
     val cornerPercent: Float = 100f,
     // Εμφάνιση
@@ -163,6 +165,7 @@ object Prefs {
             compactWidth = sp.getFloat("compactWidth", d.compactWidth),
             autoWidth = sp.getBoolean("autoWidth", d.autoWidth),
             asymCompact = sp.getBoolean("asymCompact", d.asymCompact),
+            cameraGap = sp.getFloat("cameraGap", d.cameraGap),
             expandedWidth = sp.getFloat("expandedWidth", d.expandedWidth),
             cornerPercent = sp.getFloat("cornerPercent", d.cornerPercent),
             idleStyle = sp.getInt("idleStyle", d.idleStyle),
@@ -210,6 +213,7 @@ object Prefs {
             .putFloat("compactWidth", s.compactWidth)
             .putBoolean("autoWidth", s.autoWidth)
             .putBoolean("asymCompact", s.asymCompact)
+            .putFloat("cameraGap", s.cameraGap)
             .putFloat("expandedWidth", s.expandedWidth)
             .putFloat("cornerPercent", s.cornerPercent)
             .putInt("idleStyle", s.idleStyle)

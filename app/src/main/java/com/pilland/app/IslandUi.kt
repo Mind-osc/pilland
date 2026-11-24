@@ -192,7 +192,7 @@ private fun rightContentWidth(item: IslandItem, cfg: Settings): Float {
 fun isAsym(cfg: Settings) = cfg.autoWidth && cfg.asymCompact
 
 /** Μισό κενό γύρω από την τρύπα της κάμερας στο ασύμμετρο νησάκι. */
-fun camGapHalf(cfg: Settings) = cfg.pillHeight * 0.36f
+fun camGapHalf(cfg: Settings) = cfg.cameraGap
 
 /** Απόσταση (dp) αριστερής / δεξιάς άκρης από το κέντρο της κάμερας. */
 fun compactExtents(item: IslandItem, cfg: Settings): Pair<Float, Float> {
@@ -205,7 +205,7 @@ fun compactExtents(item: IslandItem, cfg: Settings): Pair<Float, Float> {
         val r = max(g + right + 5f, h / 2f + 4f)
         return l to r
     }
-    val w = if (cfg.autoWidth) (2 * max(left, right) + h * 0.95f + 10f).coerceIn(h * 2.4f, 380f) else cfg.compactWidth
+    val w = if (cfg.autoWidth) (2 * max(left, right) + cfg.cameraGap * 2f + 10f).coerceIn(h * 2.4f, 380f) else cfg.compactWidth
     return w / 2f to w / 2f
 }
 
@@ -540,7 +540,7 @@ private fun CameraBand(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Start, content = left)
-        Spacer(Modifier.width(height * 0.95f))
+        Spacer(Modifier.width((Prefs.value.cameraGap * 2f).dp))
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End, content = right)
     }
 }
