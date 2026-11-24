@@ -344,8 +344,33 @@ object Island {
 
     // ---------- demo ----------
 
+    private var demoJob: Job? = null
+
+    /** Οι δοκιμές κρατάνε λίγα δευτερόλεπτα και μετά καθαρίζουν μόνες τους. */
+    private fun autoClearDemo(vararg ids: String) {
+        demoJob?.cancel()
+        demoJob = scope.launch {
+            delay(7_000)
+            ids.forEach { id ->
+                if (id == INT_TIMER) timerJob?.cancel()
+                if (id == "media" && media.value?.pkg == "demo") media.value = null
+                if (id != "media" || media.value == null) remove(id)
+            }
+        }
+    }
+
     fun demo(kind: Kind) {
         val now = System.currentTimeMillis()
+        when (kind) {
+            Kind.TORCH -> autoClearDemo("demo_torch")
+            Kind.TIMER -> autoClearDemo(INT_TIMER)
+            Kind.STOPWATCH -> autoClearDemo(INT_WATCH)
+            Kind.CALL -> autoClearDemo("demo_call")
+            Kind.PROGRESS -> autoClearDemo("demo_prog")
+            Kind.LIVE -> autoClearDemo("demo_live")
+            Kind.MEDIA -> autoClearDemo("media")
+            else -> {}
+        }
         when (kind) {
             Kind.TORCH -> upsert(IslandItem("demo_torch", Kind.TORCH, Feature.TORCH, 40, title = "Φακός", accent = Color(0xFF2F80FF), actions = listOf(IslandAction("Σβήσε", key = "demo:off"))))
             Kind.TIMER -> startTimer(10 * 60_000L + 1_000)

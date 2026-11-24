@@ -95,8 +95,8 @@ data class Settings(
     val transitionStyle: Int = 0, // 0 scale, 1 slide, 2 fade, 3 flip
     val haptics: Boolean = true,
     // Συμπεριφορά
-    val momentSeconds: Float = 3.5f,
-    val autoCollapseSeconds: Float = 8f,
+    val momentSeconds: Float = 2.5f,
+    val autoCollapseSeconds: Float = 5f,
     val hideLandscape: Boolean = true,
     val hideLockscreen: Boolean = false,
     val hidePausedMedia: Boolean = true,
@@ -132,7 +132,15 @@ object Prefs {
 
     fun init(ctx: Context) {
         sp = ctx.getSharedPreferences("pilland", Context.MODE_PRIVATE)
-        _state.value = load()
+        var s = load()
+        // Μετάβαση στους νέους, πιο σύντομους χρόνους
+        if (sp.getInt("schema", 1) < 2) {
+            if (s.momentSeconds == 3.5f) s = s.copy(momentSeconds = 2.5f)
+            if (s.autoCollapseSeconds == 8f) s = s.copy(autoCollapseSeconds = 5f)
+            sp.edit().putInt("schema", 2).apply()
+            save(s)
+        }
+        _state.value = s
     }
 
     fun update(block: (Settings) -> Settings) {

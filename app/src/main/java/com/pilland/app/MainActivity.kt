@@ -260,8 +260,8 @@ private fun SettingsScreen(resumeTick: Int) {
 
         item {
             Section("Συμπεριφορά", Icons.Rounded.Tune) {
-                SliderRow("Διάρκεια «στιγμής»", cfg.momentSeconds, 1.5f..8f, "%.1f s") { v -> Prefs.update { it.copy(momentSeconds = v) } }
-                SliderRow("Αυτόματο κλείσιμο", cfg.autoCollapseSeconds, 3f..30f, "%.0f s") { v -> Prefs.update { it.copy(autoCollapseSeconds = v) } }
+                SliderRow("Διάρκεια «στιγμής»", cfg.momentSeconds, 1f..8f, "%.1f s") { v -> Prefs.update { it.copy(momentSeconds = v) } }
+                SliderRow("Αυτόματο κλείσιμο ανοιχτής κάρτας", cfg.autoCollapseSeconds, 2f..30f, "%.0f s") { v -> Prefs.update { it.copy(autoCollapseSeconds = v) } }
                 SliderRow("Όριο χαμηλής μπαταρίας", cfg.lowBatteryLevel.toFloat(), 5f..30f, "%.0f%%") { v -> Prefs.update { it.copy(lowBatteryLevel = v.roundToInt()) } }
                 SwitchRow("Απόκρυψη σε landscape (παιχνίδια, βίντεο)", cfg.hideLandscape) { v -> Prefs.update { it.copy(hideLandscape = v) } }
                 SwitchRow("Απόκρυψη στην οθόνη κλειδώματος", cfg.hideLockscreen) { v -> Prefs.update { it.copy(hideLockscreen = v) } }
