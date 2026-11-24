@@ -1085,6 +1085,32 @@ private fun ReplyField(item: IslandItem, cfg: Settings, accent: Color, fg: Color
 // Γρήγορο πάνελ
 // =====================================================================
 
+/** Περίπου ύψος (dp) κάθε κουτιού του πάνελ. */
+private const val TILE_H = 54f
+
+/**
+ * Το στοιχείο ξεκινά μικρό από το σημείο της κάμερας και «πετάει» στη θέση του
+ * με ελατήριο. (cx, cy) = κέντρο του στοιχείου μέσα στο πάνελ, σε dp.
+ */
+private fun Modifier.fromCamera(cfg: Settings, cx: Float, cy: Float, index: Int): Modifier = composed {
+    val p = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay((index * 32L / cfg.animSpeed.coerceAtLeast(0.3f)).toLong())
+        val (st, dmp) = cfg.spring()
+        p.animateTo(1f, spring(dmp.coerceAtLeast(0.55f), (st * 0.7f).coerceIn(150f, 900f)))
+    }
+    val camX = cfg.expandedWidth / 2f
+    val camY = cfg.pillHeight / 2f
+    this.graphicsLayer {
+        val k = p.value
+        translationX = (camX - cx).dp.toPx() * (1f - k)
+        translationY = (camY - cy).dp.toPx() * (1f - k)
+        scaleX = 0.15f + 0.85f * k
+        scaleY = 0.15f + 0.85f * k
+        alpha = (k * 1.6f).coerceIn(0f, 1f)
+    }
+}
+
 private data class QuickTile(val key: String, val label: String, val icon: ImageVector)
 
 private val quickTiles = listOf(
@@ -1120,14 +1146,15 @@ private fun PanelContent(cfg: Settings, s: IslandState, accent: Color, fg: Color
             quickTiles.chunked(4).forEachIndexed { row, tiles ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     tiles.forEachIndexed { col, t ->
-                        var shown by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) { delay(((row * 4 + col) * 28L)); shown = true }
-                        val sc by animateFloatAsState(if (shown) 1f else 0.5f, spring(0.55f, 500f), label = "t")
                         val active = t.key == "torch" && Torch.on
+                        // Κέντρο του κουτιού σε σχέση με την κάμερα (dp) → ξεκινά από την κάμερα
+                        val cw = (cfg.expandedWidth - 36f - 24f) / 4f
+                        val cx = 18f + col * (cw + 8f) + cw / 2f
+                        val cy = cfg.pillHeight + row * (TILE_H + 7f) + TILE_H / 2f
                         Column(
                             Modifier
                                 .weight(1f)
-                                .graphicsLayer { scaleX = sc; scaleY = sc; alpha = sc.coerceIn(0f, 1f) }
+                                .fromCamera(cfg, cx, cy, row * 4 + col)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(if (active) accent else fg.copy(alpha = 0.1f))
                                 .clickable {
@@ -1152,10 +1179,14 @@ private fun PanelContent(cfg: Settings, s: IslandState, accent: Color, fg: Color
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.HourglassTop, null, tint = accent, modifier = Modifier.size(18.dp))
-                listOf(1, 3, 5, 10, 15, 30).forEach { m ->
+                listOf(1, 3, 5, 10, 15, 30).forEachIndexed { i, m ->
+                    val chipW = (cfg.expandedWidth - 36f - 18f - 36f) / 6f
+                    val cx = 18f + 18f + 6f + i * (chipW + 6f) + chipW / 2f
+                    val cy = cfg.pillHeight + 2 * (TILE_H + 7f) + 15f
                     Box(
                         Modifier
                             .weight(1f)
+                            .fromCamera(cfg, cx, cy, 8 + i)
                             .height(30.dp)
                             .clip(RoundedCornerShape(15.dp))
                             .background(fg.copy(alpha = 0.1f))
