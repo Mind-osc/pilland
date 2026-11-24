@@ -104,6 +104,8 @@ object Island {
     val media = MutableStateFlow<MediaInfo?>(null)
     /** true όταν τρέχει το πραγματικό overlay. */
     val serviceActive = MutableStateFlow(false)
+    /** Αντιστάθμιση (dp) όταν το παράθυρο κόβεται στα όρια της οθόνης. */
+    val windowShift = MutableStateFlow(0f)
 
     @Volatile var mediaController: MediaController? = null
     var serviceRef: WeakReference<IslandService>? = null

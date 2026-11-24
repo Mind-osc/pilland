@@ -276,15 +276,21 @@ class IslandService : AccessibilityService() {
     private fun positionParams(p: WindowManager.LayoutParams, offX: Float, offY: Float, pill: Float) {
         val cx = cutout.centerX()
         val cy = cutout.centerY()
-        p.x = cx - screenW / 2 + dp(offX)
+        val desired = cx - screenW / 2 + dp(offX)
+        // Το παράθυρο δεν βγαίνει ποτέ έξω από την οθόνη (αλλιώς το Android το μετακινεί με καθυστέρηση).
+        val w = if (p.width > 0) p.width else curW
+        val maxX = ((screenW - w) / 2).coerceAtLeast(0)
+        val x = desired.coerceIn(-maxX, maxX)
+        p.x = x
         p.y = cy - dp(pill) / 2 - dp(WINDOW_PAD) + dp(offY)
+        Island.windowShift.value = (desired - x) / resources.displayMetrics.density
     }
 
     private fun applySpec(spec: WindowSpec) {
         val p = params ?: return
         val v = root ?: return
         val w = wm ?: return
-        val tw = dp(spec.size.first)
+        val tw = dp(spec.size.first).coerceAtMost(screenW)
         val th = dp(spec.size.second)
         p.flags = baseFlags(spec.touchable, spec.focusable)
         p.softInputMode = if (spec.focusable) WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE else WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
@@ -293,11 +299,13 @@ class IslandService : AccessibilityService() {
         val nw = maxOf(curW, tw)
         val nh = maxOf(curH, th)
         setSize(p, nw, nh)
+        positionParams(p, spec.offX, spec.offY, spec.pill)
         try { w.updateViewLayout(v, p) } catch (_: Throwable) {}
         if (tw < nw || th < nh) {
             shrinkJob = scope.launch {
                 delay((950 / spec.speed.coerceAtLeast(0.3f)).toLong())
                 setSize(p, tw, th)
+                positionParams(p, spec.offX, spec.offY, spec.pill)
                 try { w.updateViewLayout(v, p) } catch (_: Throwable) {}
             }
         }

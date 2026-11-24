@@ -250,8 +250,9 @@ fun OverlayRoot() {
     val cfg by Prefs.state.collectAsState()
     val media by Island.media.collectAsState()
     val d = Island.resolve(s, cfg)
+    val shift by Island.windowShift.collectAsState()
     Box(
-        Modifier.fillMaxSize().padding(top = IslandService.WINDOW_PAD.dp),
+        Modifier.fillMaxSize().padding(top = IslandService.WINDOW_PAD.dp).offset(x = shift.dp),
         contentAlignment = Alignment.TopCenter
     ) {
         IslandView(d, cfg, s, media, interactive = true)
@@ -1247,13 +1248,9 @@ private fun PanelContent(cfg: Settings, s: IslandState, accent: Color, fg: Color
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.HourglassTop, null, tint = accent, modifier = Modifier.size(18.dp))
                 listOf(1, 3, 5, 10, 15, 30).forEachIndexed { i, m ->
-                    val chipW = (cfg.expandedWidth - 36f - 18f - 36f) / 6f
-                    val cx = 18f + 18f + 6f + i * (chipW + 6f) + chipW / 2f
-                    val cy = cfg.pillHeight + 2 * (TILE_H + 7f) + 15f
                     Box(
                         Modifier
                             .weight(1f)
-                            .fromCamera(cfg, cx, cy, 8 + i)
                             .height(30.dp)
                             .clip(RoundedCornerShape(15.dp))
                             .background(fg.copy(alpha = 0.1f))
