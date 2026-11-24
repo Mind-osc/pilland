@@ -11,8 +11,8 @@ android {
         applicationId = "com.pilland.app"
         minSdk = 31
         targetSdk = 34
-        versionCode = 27
-        versionName = "2.3"
+        versionCode = 28
+        versionName = "2.4"
     }
 
     signingConfigs {

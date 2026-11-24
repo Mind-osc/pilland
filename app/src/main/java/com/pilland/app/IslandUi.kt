@@ -286,7 +286,12 @@ fun IslandView(
     val replyOpen = s.replyKey != null && (s.replyKey == d.item?.notifKey || s.replyKey == d.item?.id)
     val (tw, th) = islandSize(d, cfg, replyOpen)
     val small = d.mode == Mode.COMPACT || d.mode == Mode.WIDE || d.mode == Mode.IDLE || d.mode == Mode.HIDDEN
-    val targetRadius = if (small) th / 2f else min(34f, th / 2f)
+    // Συντομεύσεις: γωνία = γωνία κουμπιού (16) + περιθώριο (6) → ομόκεντρες καμπύλες
+    val targetRadius = when {
+        small -> th / 2f
+        d.mode == Mode.SHORTCUTS -> 22f
+        else -> min(34f, th / 2f)
+    }
     val radiusPct = (cfg.cornerPercent / 100f).coerceIn(0.08f, 1f)
 
     val w by animateDpAsState(tw.dp, spring(damp, stiff), label = "w")
@@ -1167,7 +1172,7 @@ private fun ShortcutsContent(cfg: Settings, fg: Color, accent: Color) {
                     .fillMaxWidth()
                     .height((SC_ROW - 5f).dp)
                     .fromCamera(cfg, cardW / 2f, cfg.pillHeight + i * SC_ROW + (SC_ROW - 5f) / 2f, i, cardW)
-                    .clip(RoundedCornerShape(25.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(fg.copy(alpha = if (cfg.frost) 0.12f else 0.09f))
                     .clickable { Util.tick(); Shortcuts.run(k) }
                     .padding(horizontal = 8.dp),
