@@ -133,7 +133,7 @@ object Torch {
         }
     }
 
-    fun setLevel(l: Int) {
+    fun applyLevel(l: Int) {
         try {
             val id = camId ?: return
             if (Build.VERSION.SDK_INT >= 33 && maxLevel > 1) cm?.turnOnTorchWithStrengthLevel(id, l.coerceIn(1, maxLevel))

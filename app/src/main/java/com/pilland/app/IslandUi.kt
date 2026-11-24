@@ -913,7 +913,7 @@ private fun TorchExpanded(item: IslandItem, cfg: Settings, accent: Color, fg: Co
                         .background(fg.copy(alpha = 0.14f))
                         .pointerInput(Unit) {
                             detectHorizontalDragGestures(
-                                onDragEnd = { Torch.setLevel(lv.toInt()) },
+                                onDragEnd = { Torch.applyLevel(lv.toInt()) },
                                 onHorizontalDrag = { ch, amt ->
                                     ch.consume()
                                     lv = (lv + amt / size.width * Torch.maxLevel).coerceIn(1f, Torch.maxLevel.toFloat())
