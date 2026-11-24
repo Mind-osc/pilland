@@ -18,6 +18,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -282,7 +283,8 @@ fun IslandView(
     val w by animateDpAsState(tw.dp, spring(damp, stiff), label = "w")
     val h by animateDpAsState(th.dp, spring(damp, stiff), label = "h")
     val r by animateDpAsState((targetRadius * radiusPct).dp, spring(damp, stiff), label = "r")
-    val ox by animateDpAsState(islandOffsetX(d, cfg).dp, spring(damp, stiff), label = "ox")
+    // Χωρίς υπέρβαση: το κέντρο πάει ομαλά στην κάμερα, δεν «πετάγεται» αριστερά/δεξιά
+    val ox by animateDpAsState(islandOffsetX(d, cfg).dp, spring(1f, stiff), label = "ox")
     val invisible = d.mode == Mode.HIDDEN || (d.mode == Mode.IDLE && cfg.idleStyle == 0)
     val alpha by animateFloatAsState(if (invisible) 0f else 1f, tween((260 / cfg.animSpeed).toInt()), label = "a")
     var pressed by remember { mutableStateOf(false) }
@@ -307,7 +309,7 @@ fun IslandView(
         // δευτερεύουσα φούσκα (split)
         val sec = d.secondary
         val showSec = sec != null && cfg.splitBubble && (d.mode == Mode.COMPACT || d.mode == Mode.WIDE)
-        val secOffset by animateDpAsState(if (showSec) (islandOffsetX(d, cfg) + tw / 2f + 6f + cfg.pillHeight / 2f).dp else 0.dp, spring(damp, stiff), label = "so")
+        val secOffset by animateDpAsState(if (showSec) (islandOffsetX(d, cfg) + tw / 2f + 6f + cfg.pillHeight / 2f).dp else 0.dp, spring(1f, stiff), label = "so")
         AnimatedVisibility(
             visible = showSec,
             enter = scaleIn(spring(damp, stiff), initialScale = 0.2f) + fadeIn(),
@@ -377,7 +379,7 @@ private fun AnimatedContentTransitionScope<Display>.islandTransition(cfg: Settin
         val top = TransformOrigin(0.5f, 0f)
         return (fadeIn(tween((240 / sp).toInt(), (90 / sp).toInt())) +
             scaleIn(tween((320 / sp).toInt(), (60 / sp).toInt(), FastOutSlowInEasing), initialScale = 0.9f, transformOrigin = top)) togetherWith
-            fadeOut(tween((90 / sp).toInt()))
+            fadeOut(tween((90 / sp).toInt())) using SizeTransform(clip = true) { _, _ -> snap() }
     }
     return when (cfg.transitionStyle) {
         // Slide: το νέο έρχεται από πάνω, το παλιό φεύγει προς τα κάτω
@@ -391,7 +393,7 @@ private fun AnimatedContentTransitionScope<Display>.islandTransition(cfg: Settin
         // Zoom: μεγαλώνει από το κέντρο
         else -> (scaleIn(spring(damp, stiff), initialScale = 0.45f) + fadeIn(tween(inMs, delayMs))) togetherWith
             (scaleOut(tween(outMs), targetScale = 1.2f) + fadeOut(tween(outMs)))
-    }.using(SizeTransform(clip = true))
+    }.using(SizeTransform(clip = true) { _, _ -> snap() })
 }
 
 // =====================================================================
@@ -1104,7 +1106,11 @@ private fun ReplyField(item: IslandItem, cfg: Settings, accent: Color, fg: Color
 
 private const val SC_ROW = 56f
 
-fun shortcutsCardWidth(cfg: Settings) = (cfg.expandedWidth * 0.82f).coerceAtLeast(240f)
+fun shortcutsCardWidth(cfg: Settings): Float {
+    val longest = visibleShortcuts(cfg).maxOfOrNull { Shortcuts.label(it).length } ?: 10
+    // περιθώρια + εικονίδιο + κενό + κείμενο
+    return (10f * 2 + 8f * 2 + 36f + 12f + longest * 15f * 0.6f * cfg.textScale + 18f).coerceIn(190f, cfg.expandedWidth)
+}
 
 fun visibleShortcuts(cfg: Settings): List<String> = cfg.shortcuts.filter { Shortcuts.installed(it) }
 
