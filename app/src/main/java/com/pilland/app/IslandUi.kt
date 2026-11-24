@@ -26,7 +26,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.using
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -305,7 +305,7 @@ fun IslandView(
     }
 }
 
-private fun islandTransition(cfg: Settings): ContentTransform {
+private fun AnimatedContentTransitionScope<Display>.islandTransition(cfg: Settings): ContentTransform {
     val (stiff, damp) = cfg.spring()
     val sp = cfg.animSpeed.coerceAtLeast(0.3f)
     val inMs = (260 / sp).toInt()
