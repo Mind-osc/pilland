@@ -344,6 +344,7 @@ fun IslandView(
                 targetState = d,
                 contentKey = { "${it.mode}:${it.item?.id}" },
                 transitionSpec = { islandTransition(cfg) },
+                contentAlignment = Alignment.TopCenter,
                 label = "content",
                 modifier = Modifier.fillMaxSize()
             ) { target ->
@@ -366,6 +367,15 @@ private fun AnimatedContentTransitionScope<Display>.islandTransition(cfg: Settin
     val inMs = (260 / sp).toInt()
     val outMs = (140 / sp).toInt()
     val delayMs = (70 / sp).toInt()
+    // Όταν αλλάζει το μέγεθος (μικρό ↔ μεγάλο), κινείται ήδη το ίδιο το νησάκι:
+    // το περιεχόμενο απλώς ξεπροβάλλει από την κάμερα, χωρίς ζουμ που ξεχειλίζει.
+    fun big(m: Mode) = m == Mode.EXPANDED || m == Mode.PEEK || m == Mode.PANEL
+    if (big(initialState.mode) != big(targetState.mode)) {
+        val top = TransformOrigin(0.5f, 0f)
+        return (fadeIn(tween((240 / sp).toInt(), (90 / sp).toInt())) +
+            scaleIn(tween((320 / sp).toInt(), (60 / sp).toInt(), FastOutSlowInEasing), initialScale = 0.9f, transformOrigin = top)) togetherWith
+            fadeOut(tween((90 / sp).toInt()))
+    }
     return when (cfg.transitionStyle) {
         // Slide: το νέο έρχεται από πάνω, το παλιό φεύγει προς τα κάτω
         1 -> (slideInVertically(spring(0.8f, (stiff * 0.8f).coerceAtLeast(120f))) { -it } + fadeIn(tween(inMs))) togetherWith
@@ -378,7 +388,7 @@ private fun AnimatedContentTransitionScope<Display>.islandTransition(cfg: Settin
         // Zoom: μεγαλώνει από το κέντρο
         else -> (scaleIn(spring(damp, stiff), initialScale = 0.45f) + fadeIn(tween(inMs, delayMs))) togetherWith
             (scaleOut(tween(outMs), targetScale = 1.2f) + fadeOut(tween(outMs)))
-    }.using(SizeTransform(clip = false))
+    }.using(SizeTransform(clip = true))
 }
 
 // =====================================================================
