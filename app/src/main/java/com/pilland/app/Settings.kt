@@ -16,6 +16,7 @@ object GestureAction {
     const val DISMISS = 5
     const val NEXT_TRACK = 6
     const val PREV_TRACK = 7
+    const val SHORTCUTS = 8
 
     val labels = listOf(
         NONE to "Τίποτα",
@@ -26,6 +27,7 @@ object GestureAction {
         DISMISS to "Απόκρυψη",
         NEXT_TRACK to "Επόμενο τραγούδι",
         PREV_TRACK to "Προηγούμενο τραγούδι",
+        SHORTCUTS to "Συντομεύσεις",
     )
     fun label(v: Int) = labels.firstOrNull { it.first == v }?.second ?: "—"
 }
@@ -112,11 +114,13 @@ data class Settings(
     val gestureTap: Int = GestureAction.TOGGLE_EXPAND,
     val gestureDoubleTap: Int = GestureAction.NONE,
     val gestureLong: Int = GestureAction.QUICK_PANEL,
-    val gestureDown: Int = GestureAction.TOGGLE_EXPAND,
+    val gestureDown: Int = GestureAction.SHORTCUTS,
     val gestureSide: Int = GestureAction.DISMISS,
     // Λειτουργίες / εξαιρέσεις
     val disabledFeatures: Set<String> = emptySet(),
     val excludedApps: Set<String> = emptySet(),
+    /** Συντομεύσεις (πακέτα εφαρμογών ή "action:…"), με τη σειρά. */
+    val shortcuts: List<String> = Shortcuts.defaults,
 ) {
     fun has(feature: String) = enabled && feature !in disabledFeatures
 
@@ -144,6 +148,11 @@ object Prefs {
             if (s.momentSeconds == 3.5f) s = s.copy(momentSeconds = 2.5f)
             if (s.autoCollapseSeconds == 8f) s = s.copy(autoCollapseSeconds = 5f)
             sp.edit().putInt("schema", 2).apply()
+            save(s)
+        }
+        if (sp.getInt("schema", 2) < 3) {
+            if (s.gestureDown == GestureAction.TOGGLE_EXPAND) s = s.copy(gestureDown = GestureAction.SHORTCUTS)
+            sp.edit().putInt("schema", 3).apply()
             save(s)
         }
         _state.value = s
@@ -204,6 +213,7 @@ object Prefs {
             gestureSide = sp.getInt("gestureSide", d.gestureSide),
             disabledFeatures = sp.getStringSet("disabledFeatures", d.disabledFeatures)?.toSet() ?: d.disabledFeatures,
             excludedApps = sp.getStringSet("excludedApps", d.excludedApps)?.toSet() ?: d.excludedApps,
+            shortcuts = sp.getString("shortcuts", null)?.let { v -> if (v.isEmpty()) emptyList() else v.split("|") } ?: d.shortcuts,
         )
     }
 
@@ -253,6 +263,7 @@ object Prefs {
             .putInt("gestureSide", s.gestureSide)
             .putStringSet("disabledFeatures", s.disabledFeatures)
             .putStringSet("excludedApps", s.excludedApps)
+            .putString("shortcuts", s.shortcuts.joinToString("|"))
             .apply()
     }
 }
@@ -269,4 +280,47 @@ object Themes {
         Theme("Ηλιοβασίλεμα") { it.copy(bgColor = 0xFF140A0A, bgAlpha = 1f, glow = true, glowAnimated = true, glowWidth = 1.8f, accentAuto = false, accentColor = 0xFFFF7A45, springPreset = 0) },
         Theme("Σπορ") { it.copy(bgColor = 0xFF000000, bgAlpha = 1f, glow = true, glowAnimated = true, glowWidth = 2.2f, accentAuto = false, accentColor = 0xFF39FF88, springPreset = 2) },
     )
+}
+
+/** Συντομεύσεις του συρσίματος προς τα κάτω. */
+object Shortcuts {
+    val actions = listOf(
+        "action:torch" to "Φακός",
+        "action:screenshot" to "Στιγμιότυπο",
+        "action:timer5" to "Χρονόμετρο 5′",
+        "action:stopwatch" to "Χρονόμετρο",
+        "action:ram" to "Βελτιστοποίηση",
+        "action:panel" to "Περισσότερα",
+        "action:lock" to "Κλείδωμα",
+    )
+    val defaults = listOf(
+        "com.sec.android.app.myfiles",
+        "com.sec.android.app.camera",
+        "com.sec.android.gallery3d",
+        "action:torch",
+        "action:panel",
+    )
+    fun isAction(k: String) = k.startsWith("action:")
+    fun label(k: String): String = actions.firstOrNull { it.first == k }?.second ?: Util.appName(k)
+    fun installed(k: String): Boolean = isAction(k) || try {
+        PillandApp.app.packageManager.getLaunchIntentForPackage(k) != null
+    } catch (_: Throwable) { false }
+
+    fun run(k: String) {
+        Island.closePanel()
+        when (k) {
+            "action:torch" -> Island.service?.let { Torch.toggle(it) }
+            "action:screenshot" -> Island.service?.quick("screenshot")
+            "action:timer5" -> Island.startTimer(5 * 60_000L)
+            "action:stopwatch" -> Island.startStopwatch()
+            "action:ram" -> Island.service?.cleanRam()
+            "action:panel" -> Island.openPanel()
+            "action:lock" -> Island.service?.quick("lock")
+            else -> try {
+                val i = PillandApp.app.packageManager.getLaunchIntentForPackage(k) ?: return
+                i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                PillandApp.app.startActivity(i)
+            } catch (_: Throwable) {}
+        }
+    }
 }

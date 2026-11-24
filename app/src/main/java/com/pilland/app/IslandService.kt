@@ -224,7 +224,7 @@ class IslandService : AccessibilityService() {
             override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
                 if (ev.actionMasked == MotionEvent.ACTION_OUTSIDE) {
                     val s = Island.state.value
-                    if (s.panel) Island.closePanel()
+                    if (s.panel || s.shortcuts) Island.closePanel()
                     else if (s.expandedId != null || s.replyKey != null) Island.collapse()
                     return false
                 }

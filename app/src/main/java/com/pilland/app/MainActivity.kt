@@ -59,6 +59,10 @@ import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.SwipeDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -165,6 +169,7 @@ private fun SettingsScreen(resumeTick: Int) {
     val ctx = LocalContext.current
     var showApps by remember { mutableStateOf(false) }
     var showReset by remember { mutableStateOf(false) }
+    var showScPicker by remember { mutableStateOf(false) }
 
     LazyColumn(
         Modifier.fillMaxSize().background(Bg),
@@ -286,6 +291,8 @@ private fun SettingsScreen(resumeTick: Int) {
             }
         }
 
+        item { ShortcutsSection(cfg) { showScPicker = true } }
+
         item {
             Section("Λειτουργίες", Icons.Rounded.Widgets) {
                 Feature.all.forEach { (key, label) ->
@@ -317,6 +324,9 @@ private fun SettingsScreen(resumeTick: Int) {
     }
 
     if (showApps) AppPickerDialog(cfg.excludedApps, onDismiss = { showApps = false }) { set -> Prefs.update { it.copy(excludedApps = set) } }
+    if (showScPicker) ShortcutAppPicker(onDismiss = { showScPicker = false }) { pkg ->
+        Prefs.update { if (pkg in it.shortcuts) it else it.copy(shortcuts = it.shortcuts + pkg) }
+    }
     if (showReset) AlertDialog(
         onDismissRequest = { showReset = false },
         confirmButton = { TextButton(onClick = { Prefs.reset(); showReset = false }) { Text("Επαναφορά") } },
@@ -684,3 +694,105 @@ private fun AppPickerDialog(initial: Set<String>, onDismiss: () -> Unit, onSave:
     )
 }
 
+
+
+// =====================================================================
+// Συντομεύσεις
+// =====================================================================
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ShortcutsSection(cfg: Settings, onAddApp: () -> Unit) {
+    Section("Συντομεύσεις", Icons.Rounded.SwipeDown) {
+        Text("Σύρε το νησάκι προς τα κάτω για να εμφανιστούν, η μία κάτω από την άλλη.", color = Muted, fontSize = 12.5.sp)
+        Spacer(Modifier.height(8.dp))
+        val list = cfg.shortcuts
+        list.forEachIndexed { i, k ->
+            val icon = remember(k) { if (Shortcuts.isAction(k)) null else Util.appIcon(k)?.first?.asImageBitmap() }
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF202028)).padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (icon != null) androidx.compose.foundation.Image(icon, null, Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)))
+                else Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                    Text("⚡", fontSize = 14.sp)
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(Shortcuts.label(k), color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                IconTap(Icons.Rounded.KeyboardArrowUp, enabled = i > 0) {
+                    Prefs.update { s -> s.copy(shortcuts = s.shortcuts.toMutableList().also { l -> val x = l.removeAt(i); l.add(i - 1, x) }) }
+                }
+                IconTap(Icons.Rounded.KeyboardArrowDown, enabled = i < list.lastIndex) {
+                    Prefs.update { s -> s.copy(shortcuts = s.shortcuts.toMutableList().also { l -> val x = l.removeAt(i); l.add(i + 1, x) }) }
+                }
+                IconTap(Icons.Rounded.Close, enabled = true) {
+                    Prefs.update { s -> s.copy(shortcuts = s.shortcuts.filterIndexed { j, _ -> j != i }) }
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        SmallButton("＋ Προσθήκη εφαρμογής") { onAddApp() }
+        Spacer(Modifier.height(8.dp))
+        Label("Ενέργειες")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Shortcuts.actions.filter { it.first !in list }.forEach { (k, l) ->
+                Box(
+                    Modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xFF24242C))
+                        .clickable { Util.tick(); Prefs.update { s -> s.copy(shortcuts = s.shortcuts + k) } }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) { Text("＋ $l", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp) }
+            }
+        }
+        SmallButton("Δοκίμασε") { Island.openShortcuts() }
+    }
+}
+
+@Composable
+private fun IconTap(icon: ImageVector, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(34.dp).clip(CircleShape).clickable(enabled = enabled) { Util.tick(); onClick() },
+        contentAlignment = Alignment.Center
+    ) { Icon(icon, null, tint = if (enabled) Color.White else Color(0x44FFFFFF), modifier = Modifier.size(20.dp)) }
+}
+
+@Composable
+private fun ShortcutAppPicker(onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    val ctx = LocalContext.current
+    var apps by remember { mutableStateOf<List<AppEntry>?>(null) }
+    LaunchedEffect(Unit) {
+        apps = withContext(Dispatchers.IO) {
+            val pm = ctx.packageManager
+            val i = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            pm.queryIntentActivities(i, 0)
+                .map { it.activityInfo.packageName }
+                .distinct()
+                .filter { it != ctx.packageName }
+                .map { p -> AppEntry(p, Util.appName(p), Util.appIcon(p)?.first?.asImageBitmap()) }
+                .sortedBy { it.label.lowercase() }
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Κλείσιμο") } },
+        title = { Text("Πρόσθεσε εφαρμογή") },
+        containerColor = Card,
+        text = {
+            val list = apps
+            if (list == null) Text("Φόρτωση…", color = Muted)
+            else LazyColumn(Modifier.heightIn(max = 460.dp)) {
+                items(list, key = { it.pkg }) { a ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onPick(a.pkg); onDismiss() }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val ic = a.icon
+                        if (ic != null) androidx.compose.foundation.Image(ic, null, Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)))
+                        else Box(Modifier.size(32.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(a.label, color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+    )
+}

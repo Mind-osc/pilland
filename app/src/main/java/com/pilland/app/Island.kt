@@ -80,7 +80,7 @@ data class MediaInfo(
     }
 }
 
-enum class Mode { HIDDEN, IDLE, COMPACT, WIDE, PEEK, EXPANDED, PANEL }
+enum class Mode { HIDDEN, IDLE, COMPACT, WIDE, PEEK, EXPANDED, PANEL, SHORTCUTS }
 
 data class Display(val mode: Mode, val item: IslandItem?, val secondary: IslandItem?)
 
@@ -89,6 +89,7 @@ data class IslandState(
     val moment: IslandItem? = null,
     val expandedId: String? = null,
     val panel: Boolean = false,
+    val shortcuts: Boolean = false,
     val replyKey: String? = null,
     val dismissed: Set<String> = emptySet(),
     val landscape: Boolean = false,
@@ -117,6 +118,7 @@ object Island {
     fun resolve(s: IslandState, cfg: Settings): Display {
         if (!cfg.enabled) return Display(Mode.HIDDEN, null, null)
         if ((s.landscape && cfg.hideLandscape) || (s.locked && cfg.hideLockscreen)) return Display(Mode.HIDDEN, null, null)
+        if (s.shortcuts) return Display(Mode.SHORTCUTS, null, null)
         if (s.panel) return Display(Mode.PANEL, null, null)
         val visible = s.items
             .filter { cfg.has(it.feature) && dismissKey(it) !in s.dismissed }
@@ -167,7 +169,7 @@ object Island {
     /** Παροδική "στιγμή". */
     fun flash(item: IslandItem, seconds: Float = Prefs.value.momentSeconds) {
         if (!Prefs.value.has(item.feature)) return
-        state.update { it.copy(moment = item, panel = false) }
+        state.update { it.copy(moment = item, panel = false, shortcuts = false) }
         momentJob?.cancel()
         momentJob = scope.launch {
             delay((seconds * 1000).toLong())
@@ -188,7 +190,7 @@ object Island {
     fun current(): Display = resolve(state.value, Prefs.value)
 
     fun expand(id: String, holdSeconds: Float? = null) {
-        state.update { it.copy(expandedId = id, panel = false) }
+        state.update { it.copy(expandedId = id, panel = false, shortcuts = false) }
         armCollapse(holdSeconds)
     }
 
@@ -196,7 +198,7 @@ object Island {
         val d = current()
         when (d.mode) {
             Mode.EXPANDED -> collapse()
-            Mode.PANEL -> closePanel()
+            Mode.PANEL, Mode.SHORTCUTS -> closePanel()
             Mode.IDLE -> openPanel()
             else -> d.item?.let { expand(it.id) }
         }
@@ -211,19 +213,24 @@ object Island {
     }
 
     fun openPanel() {
-        state.update { it.copy(panel = true, expandedId = null, replyKey = null) }
+        state.update { it.copy(panel = true, shortcuts = false, expandedId = null, replyKey = null) }
+        armCollapse()
+    }
+
+    fun openShortcuts() {
+        state.update { it.copy(shortcuts = true, panel = false, expandedId = null, replyKey = null) }
         armCollapse()
     }
 
     fun closePanel() {
         collapseJob?.cancel()
-        state.update { it.copy(panel = false) }
+        state.update { it.copy(panel = false, shortcuts = false) }
     }
 
     /** Κάθε άγγιγμα ανανεώνει το χρονόμετρο αυτόματου κλεισίματος. */
     fun poke() {
         val s = state.value
-        if (s.expandedId != null || s.panel) armCollapse()
+        if (s.expandedId != null || s.panel || s.shortcuts) armCollapse()
     }
 
     private fun armCollapse(holdSeconds: Float? = null) {
@@ -231,7 +238,7 @@ object Island {
         collapseJob = scope.launch {
             delay(((holdSeconds ?: Prefs.value.autoCollapseSeconds) * 1000).toLong())
             if (state.value.replyKey == null) {
-                if (state.value.panel) closePanel() else collapse()
+                if (state.value.panel || state.value.shortcuts) closePanel() else collapse()
             }
         }
     }
@@ -240,7 +247,7 @@ object Island {
         val d = current()
         val it = d.item
         when {
-            d.mode == Mode.PANEL -> closePanel()
+            d.mode == Mode.PANEL || d.mode == Mode.SHORTCUTS -> closePanel()
             it == null -> {}
             state.value.moment?.id == it.id -> clearMoment()
             else -> state.update { s -> s.copy(dismissed = s.dismissed + dismissKey(it), expandedId = null) }

@@ -119,6 +119,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -153,6 +154,7 @@ fun islandSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
         Mode.COMPACT, Mode.WIDE -> (if (item == null) h else compactWidthFor(item, cfg)) to h
         Mode.PEEK -> w to (h / 2f + 4f + 62f)
         Mode.PANEL -> w to (h + 172f)
+        Mode.SHORTCUTS -> shortcutsCardWidth(cfg) to (h + max(1, visibleShortcuts(cfg).size) * SC_ROW + 8f)
         Mode.EXPANDED -> w to (h + when (item?.kind) {
             Kind.MEDIA -> 156f
             Kind.CALL -> 106f
@@ -369,7 +371,7 @@ private fun AnimatedContentTransitionScope<Display>.islandTransition(cfg: Settin
     val delayMs = (70 / sp).toInt()
     // Όταν αλλάζει το μέγεθος (μικρό ↔ μεγάλο), κινείται ήδη το ίδιο το νησάκι:
     // το περιεχόμενο απλώς ξεπροβάλλει από την κάμερα, χωρίς ζουμ που ξεχειλίζει.
-    fun big(m: Mode) = m == Mode.EXPANDED || m == Mode.PEEK || m == Mode.PANEL
+    fun big(m: Mode) = m == Mode.EXPANDED || m == Mode.PEEK || m == Mode.PANEL || m == Mode.SHORTCUTS
     if (big(initialState.mode) != big(targetState.mode)) {
         val top = TransformOrigin(0.5f, 0f)
         return (fadeIn(tween((240 / sp).toInt(), (90 / sp).toInt())) +
@@ -400,6 +402,7 @@ private fun runGesture(action: Int, d: Display) {
         GestureAction.TOGGLE_EXPAND -> Island.toggleExpand()
         GestureAction.OPEN_APP -> { Util.openApp(d.item); Island.collapse() }
         GestureAction.QUICK_PANEL -> if (d.mode == Mode.PANEL) Island.closePanel() else Island.openPanel()
+        GestureAction.SHORTCUTS -> if (d.mode == Mode.SHORTCUTS) Island.closePanel() else Island.openShortcuts()
         GestureAction.PLAY_PAUSE -> Island.playPause()
         GestureAction.DISMISS -> Island.dismissCurrent()
         GestureAction.NEXT_TRACK -> Island.next()
@@ -458,7 +461,7 @@ private fun Modifier.islandGestures(d: Display, cfg: Settings, onPressed: (Boole
                             Util.tick()
                             when (dd.mode) {
                                 Mode.EXPANDED -> Island.collapse()
-                                Mode.PANEL -> Island.closePanel()
+                                Mode.PANEL, Mode.SHORTCUTS -> Island.closePanel()
                                 else -> Island.dismissCurrent()
                             }
                         }
@@ -518,6 +521,7 @@ private fun IslandContent(d: Display, cfg: Settings, s: IslandState, media: Medi
         Mode.COMPACT, Mode.WIDE -> if (item != null) CompactContent(item, cfg, media, accent, fg, wide = d.mode == Mode.WIDE)
         Mode.PEEK -> if (item != null) PeekContent(item, cfg, accent, fg)
         Mode.PANEL -> PanelContent(cfg, s, accent, fg)
+        Mode.SHORTCUTS -> ShortcutsContent(cfg, fg, accent)
         Mode.EXPANDED -> if (item != null) ExpandedContent(item, cfg, s, media, accent, fg)
     }
 }
@@ -1095,6 +1099,59 @@ private fun ReplyField(item: IslandItem, cfg: Settings, accent: Color, fg: Color
 // Γρήγορο πάνελ
 // =====================================================================
 
+// ---------- Συντομεύσεις (σύρσιμο κάτω) ----------
+
+private const val SC_ROW = 56f
+
+fun shortcutsCardWidth(cfg: Settings) = (cfg.expandedWidth * 0.82f).coerceAtLeast(240f)
+
+fun visibleShortcuts(cfg: Settings): List<String> = cfg.shortcuts.filter { Shortcuts.installed(it) }
+
+private fun actionIcon(k: String): ImageVector = when (k) {
+    "action:torch" -> Icons.Rounded.FlashlightOn
+    "action:screenshot" -> Icons.Rounded.Screenshot
+    "action:timer5" -> Icons.Rounded.HourglassTop
+    "action:stopwatch" -> Icons.Rounded.Timer
+    "action:ram" -> Icons.Rounded.Memory
+    "action:panel" -> Icons.Rounded.Apps
+    "action:lock" -> Icons.Rounded.Lock
+    else -> Icons.Rounded.Apps
+}
+
+@Composable
+private fun ShortcutsContent(cfg: Settings, fg: Color, accent: Color) {
+    val list = remember(cfg.shortcuts) { visibleShortcuts(cfg) }
+    val cardW = shortcutsCardWidth(cfg)
+    Column(
+        Modifier.fillMaxSize().padding(top = cfg.pillHeight.dp, start = 10.dp, end = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        if (list.isEmpty()) {
+            Text("Πρόσθεσε συντομεύσεις από τις ρυθμίσεις", color = fg.copy(alpha = 0.7f), fontSize = cfg.ts(13f), modifier = Modifier.padding(14.dp))
+        }
+        list.forEachIndexed { i, k ->
+            val icon = remember(k) { if (Shortcuts.isAction(k)) null else Util.appIcon(k)?.first?.asImageBitmap() }
+            val label = remember(k) { Shortcuts.label(k) }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height((SC_ROW - 6f).dp)
+                    .fromCamera(cfg, cardW / 2f, cfg.pillHeight + i * SC_ROW + (SC_ROW - 6f) / 2f, i, cardW)
+                    .clip(RoundedCornerShape(25.dp))
+                    .background(fg.copy(alpha = 0.09f))
+                    .clickable { Util.tick(); Shortcuts.run(k) }
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (icon != null) Image(icon, null, Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)), contentScale = ContentScale.Crop)
+                else BadgeCircle(accent, 36.dp) { Icon(actionIcon(k), null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+                Spacer(Modifier.width(12.dp))
+                Text(label, color = fg, fontSize = cfg.ts(15f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
 /** Περίπου ύψος (dp) κάθε κουτιού του πάνελ. */
 private const val TILE_H = 54f
 
@@ -1102,14 +1159,14 @@ private const val TILE_H = 54f
  * Το στοιχείο ξεκινά μικρό από το σημείο της κάμερας και «πετάει» στη θέση του
  * με ελατήριο. (cx, cy) = κέντρο του στοιχείου μέσα στο πάνελ, σε dp.
  */
-private fun Modifier.fromCamera(cfg: Settings, cx: Float, cy: Float, index: Int): Modifier = composed {
+private fun Modifier.fromCamera(cfg: Settings, cx: Float, cy: Float, index: Int, cardW: Float = cfg.expandedWidth): Modifier = composed {
     val p = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         delay((index * 32L / cfg.animSpeed.coerceAtLeast(0.3f)).toLong())
         val (st, dmp) = cfg.spring()
         p.animateTo(1f, spring(dmp.coerceAtLeast(0.55f), (st * 0.7f).coerceIn(150f, 900f)))
     }
-    val camX = cfg.expandedWidth / 2f
+    val camX = cardW / 2f
     val camY = cfg.pillHeight / 2f
     this.graphicsLayer {
         val k = p.value
