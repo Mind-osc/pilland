@@ -426,9 +426,64 @@ class IslandService : AccessibilityService() {
 
     // ---------------- quick actions ----------------
 
+    /** «Βελτιστοποίηση»: κλείνει τις πρόσφατες εφαρμογές σαν το Device Care. */
+    fun cleanRam() {
+        Island.closePanel()
+        val before = SysStats.availMb(this)
+        Island.scope.launch {
+            performGlobalAction(GLOBAL_ACTION_RECENTS)
+            delay(750)
+            var clicked = false
+            for (attempt in 0 until 3) {
+                clicked = clickByText(listOf("Κλείσιμο όλων", "Κλείσιμο όλα", "Close all", "Clear all", "Εκκαθάριση όλων"))
+                if (clicked) break
+                delay(350)
+            }
+            if (!clicked) {
+                performGlobalAction(GLOBAL_ACTION_HOME)
+                openDeviceCare()
+                return@launch
+            }
+            delay(1400)
+            val after = SysStats.availMb(this@IslandService)
+            val freed = (after - before).coerceAtLeast(0)
+            Util.vibrate(longArrayOf(0, 25, 50, 25))
+            Island.flash(
+                IslandItem(
+                    "ram_clean", Kind.INFO, Feature.NOTIFICATION, title = "Βελτιστοποιήθηκε",
+                    subtitle = if (freed > 0) "Ελευθερώθηκαν $freed MB" else "Η RAM καθάρισε",
+                    accent = Color(0xFF30D158), flag = true,
+                ), 2.5f
+            )
+        }
+    }
+
+    private fun clickByText(labels: List<String>): Boolean {
+        val root = try { rootInActiveWindow } catch (_: Throwable) { null } ?: return false
+        for (l in labels) {
+            val nodes = try { root.findAccessibilityNodeInfosByText(l) } catch (_: Throwable) { null } ?: continue
+            for (n in nodes) {
+                var x: android.view.accessibility.AccessibilityNodeInfo? = n
+                var depth = 0
+                while (x != null && !x.isClickable && depth < 4) { x = x.parent; depth++ }
+                if (x != null && x.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) return true
+            }
+        }
+        return false
+    }
+
+    private fun openDeviceCare() {
+        val candidates = listOf("com.samsung.android.lool", "com.samsung.android.sm_cn", "com.samsung.android.sm")
+        for (p in candidates) {
+            val i = packageManager.getLaunchIntentForPackage(p) ?: continue
+            try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return } catch (_: Throwable) {}
+        }
+    }
+
     fun quick(action: String) {
         Island.closePanel()
         when (action) {
+            "ram" -> cleanRam()
             "screenshot" -> Island.scope.launch { delay(450); performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT) }
             "lock" -> performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
             "notifications" -> performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)

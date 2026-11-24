@@ -70,7 +70,9 @@ import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
@@ -1062,9 +1064,7 @@ private fun PanelContent(cfg: Settings, s: IslandState, accent: Color, fg: Color
                 Text("Pilland", color = fg, fontSize = cfg.ts(13f), fontWeight = FontWeight.Bold)
             },
             right = {
-                Text("${s.battery}%", color = fg.copy(alpha = 0.8f), fontSize = cfg.ts(12f))
-                Spacer(Modifier.width(6.dp))
-                MiniBattery(s.battery, if (s.charging) Color(0xFF34C759) else if (s.battery <= cfg.lowBatteryLevel) Color(0xFFFF453A) else fg, fg)
+                SysChips(cfg, fg)
                 Spacer(Modifier.width(4.dp))
                 Box(
                     Modifier.size(26.dp).clip(CircleShape).clickable { Island.service?.quick("settings") ?: Island.closePanel() },
@@ -1121,6 +1121,47 @@ private fun PanelContent(cfg: Settings, s: IslandState, accent: Color, fg: Color
                 }
             }
         }
+    }
+}
+
+private fun loadColor(p: Int): Color = when {
+    p < 0 -> Color(0xFF8E8E93)
+    p < 60 -> Color(0xFF30D158)
+    p < 85 -> Color(0xFFFF9F0A)
+    else -> Color(0xFFFF453A)
+}
+
+/** RAM & CPU με μικρά εικονίδια. Πάτημα = καθαρισμός RAM. */
+@Composable
+private fun SysChips(cfg: Settings, fg: Color) {
+    var ram by remember { mutableStateOf(SysStats.ramPct(Util.ctx)) }
+    var cpu by remember { mutableStateOf(-1) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SysStats.ramPct(Util.ctx) to SysStats.cpuPct() }
+            ram = r.first; cpu = r.second
+            delay(1500)
+        }
+    }
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(fg.copy(alpha = 0.08f))
+            .clickable {
+                Util.tick()
+                val svc = Island.service
+                if (svc != null) svc.cleanRam() else Island.closePanel()
+            }
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Rounded.Memory, null, tint = loadColor(ram), modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(3.dp))
+        Text(if (ram >= 0) "$ram%" else "—", color = fg.copy(alpha = 0.9f), fontSize = cfg.ts(11.5f), fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.width(8.dp))
+        Icon(Icons.Rounded.Speed, null, tint = loadColor(cpu), modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(3.dp))
+        Text(if (cpu >= 0) "$cpu%" else "—", color = fg.copy(alpha = 0.9f), fontSize = cfg.ts(11.5f), fontWeight = FontWeight.SemiBold)
     }
 }
 
