@@ -794,8 +794,10 @@ private fun ActionChips(item: IslandItem, accent: Color, fg: Color, cfg: Setting
             val color = when {
                 call && item.actions.size >= 2 && idx == 0 -> Color(0xFFFF453A)
                 call && idx == item.actions.lastIndex -> Color(0xFF34C759)
+                a.label == "Άνοιγμα" -> accent
                 else -> fg.copy(alpha = 0.14f)
             }
+            val strong = call || a.label == "Άνοιγμα"
             val bh = if (call) 48.dp else 36.dp
             Row(
                 Modifier
@@ -812,7 +814,7 @@ private fun ActionChips(item: IslandItem, accent: Color, fg: Color, cfg: Setting
                     Icon(if (decline) Icons.Rounded.CallEnd else Icons.Rounded.Call, null, tint = Color.White, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                 }
-                Text(a.label, color = if (call) Color.White else fg, fontSize = cfg.ts(if (call) 15f else 13f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(a.label, color = if (strong) Color.White else fg, fontSize = cfg.ts(if (call) 15f else 13f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

@@ -215,12 +215,21 @@ class PillNotificationService : NotificationListenerService() {
         // Η λήψη/πρόοδος τελείωσε ή η ειδοποίηση άλλαξε μορφή: φεύγει το παλιό.
         if (prev != null && (prev.kind == Kind.PROGRESS || prev.kind == Kind.LIVE) && !stillProgress && !promoted) {
             Island.remove(id)
+            val open = n.contentIntent ?: prev.contentIntent
+            val acts = buildList {
+                if (open != null) add(IslandAction("Όχι", key = "moment:dismiss"))
+                if (open != null) add(IslandAction("Άνοιγμα", intent = open))
+            }
             Island.flash(
                 base.copy(
-                    id = id + ":done", kind = Kind.INFO, feature = Feature.PROGRESS, title = title.ifEmpty { prev.title },
-                    subtitle = "Ολοκληρώθηκε", progress = null, actions = emptyList(),
-                ), 2f
+                    id = id + ":done", kind = Kind.NOTIFICATION, feature = Feature.PROGRESS,
+                    title = "Η λήψη ολοκληρώθηκε",
+                    subtitle = (prev.subtitle.ifEmpty { prev.title }).ifEmpty { title },
+                    progress = null, indeterminate = false, actions = acts,
+                    contentIntent = open, autoExpand = open != null,
+                ), 10f
             )
+            Util.vibrate(longArrayOf(0, 25, 60, 25))
             return
         }
 

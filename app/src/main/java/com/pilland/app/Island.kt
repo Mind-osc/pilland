@@ -173,7 +173,7 @@ object Island {
             delay((seconds * 1000).toLong())
             if (state.value.expandedId != item.id && state.value.replyKey == null) clearMoment()
         }
-        if (item.autoExpand) expand(item.id)
+        if (item.autoExpand) expand(item.id, seconds)
     }
 
     fun clearMoment() {
@@ -187,9 +187,9 @@ object Island {
 
     fun current(): Display = resolve(state.value, Prefs.value)
 
-    fun expand(id: String) {
+    fun expand(id: String, holdSeconds: Float? = null) {
         state.update { it.copy(expandedId = id, panel = false) }
-        armCollapse()
+        armCollapse(holdSeconds)
     }
 
     fun toggleExpand() {
@@ -226,10 +226,10 @@ object Island {
         if (s.expandedId != null || s.panel) armCollapse()
     }
 
-    private fun armCollapse() {
+    private fun armCollapse(holdSeconds: Float? = null) {
         collapseJob?.cancel()
         collapseJob = scope.launch {
-            delay((Prefs.value.autoCollapseSeconds * 1000).toLong())
+            delay(((holdSeconds ?: Prefs.value.autoCollapseSeconds) * 1000).toLong())
             if (state.value.replyKey == null) {
                 if (state.value.panel) closePanel() else collapse()
             }
@@ -341,6 +341,7 @@ object Island {
             }
             "watch:stop" -> remove(INT_WATCH)
             "torch:toggle" -> service?.let { Torch.toggle(it) }
+            "moment:dismiss" -> { collapse(); clearMoment() }
             "media:playpause" -> playPause()
         }
     }
@@ -397,7 +398,25 @@ object Island {
                 )
             }
             Kind.CALL -> upsert(IslandItem("demo_call", Kind.CALL, Feature.CALL, 100, title = "Γιάννης", subtitle = "Εισερχόμενη κλήση", appName = "Τηλέφωνο", accent = Color(0xFF34C759), autoExpand = true, actions = listOf(IslandAction("Απόρριψη", key = "demo:call_off"), IslandAction("Απάντηση", key = "demo:call_off"))))
-            Kind.PROGRESS -> upsert(IslandItem("demo_prog", Kind.PROGRESS, Feature.PROGRESS, 45, title = "Λήψη αρχείου", subtitle = "video.mp4", appName = "Chrome", progress = 0.42f, accent = Color(0xFF64D2FF)))
+            Kind.PROGRESS -> {
+                upsert(IslandItem("demo_prog", Kind.PROGRESS, Feature.PROGRESS, 45, title = "Λήψη αρχείου", subtitle = "video.mp4", appName = "Chrome", progress = 0.42f, accent = Color(0xFF64D2FF)))
+                scope.launch {
+                    for (p in listOf(0.6f, 0.8f, 0.95f, 1f)) {
+                        delay(700)
+                        val cur = state.value.items.firstOrNull { it.id == "demo_prog" } ?: return@launch
+                        upsert(cur.copy(progress = p))
+                    }
+                    delay(400)
+                    remove("demo_prog")
+                    flash(
+                        IslandItem(
+                            "demo_done", Kind.NOTIFICATION, Feature.PROGRESS, title = "Η λήψη ολοκληρώθηκε", subtitle = "video.mp4",
+                            appName = "Chrome", accent = Color(0xFF64D2FF), autoExpand = true,
+                            actions = listOf(IslandAction("Όχι", key = "moment:dismiss"), IslandAction("Άνοιγμα", key = "moment:dismiss")),
+                        ), 10f
+                    )
+                }
+            }
             Kind.LIVE -> upsert(IslandItem("demo_live", Kind.LIVE, Feature.LIVE, 55, title = "Η παραγγελία έρχεται", subtitle = "Σε 12 λεπτά", appName = "efood", progress = 0.65f, accent = Color(0xFFFF2D55)))
             Kind.MEDIA -> {
                 media.value = MediaInfo("Blinding Lights", "The Weeknd", null, Color(0xFFFF375F), true, 200_000, 64_000, SystemClock.elapsedRealtime(), 1f, "demo", "Spotify")
