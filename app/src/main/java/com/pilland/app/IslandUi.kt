@@ -148,16 +148,12 @@ fun islandSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
     val item = d.item
     return when (d.mode) {
         Mode.HIDDEN, Mode.IDLE -> h to h
-        Mode.COMPACT -> cfg.compactWidth to h
-        Mode.WIDE -> when (item?.kind) {
-            Kind.UNLOCK -> max(h * 2.6f, cfg.compactWidth * 0.62f) to h
-            else -> (cfg.compactWidth + 76f) to h
-        }
+        Mode.COMPACT, Mode.WIDE -> (if (item == null) h else compactWidthFor(item, cfg)) to h
         Mode.PEEK -> w to (h + 76f)
         Mode.PANEL -> w to (h + 204f)
         Mode.EXPANDED -> w to (h + when (item?.kind) {
             Kind.MEDIA -> 164f
-            Kind.CALL -> 100f
+            Kind.CALL -> 112f
             Kind.TIMER, Kind.STOPWATCH -> 112f
             Kind.TORCH -> 104f
             Kind.NOTIFICATION -> 116f + (if (reply) 52f else 0f)
@@ -165,6 +161,33 @@ fun islandSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
             else -> 88f
         })
     }
+}
+
+/** Πλάτος (dp) του μικρού νησιού ανάλογα με το τι δείχνει. Συμμετρικό γύρω από την κάμερα. */
+fun compactWidthFor(item: IslandItem, cfg: Settings): Float {
+    val h = cfg.pillHeight
+    val ts = cfg.textScale
+    fun txt(chars: Int, sp: Float) = chars * sp * 0.62f * ts
+    val left = h - 10f
+    val right = when (item.kind) {
+        Kind.MEDIA -> if (cfg.visualizer) 30f else 20f
+        Kind.TIMER, Kind.STOPWATCH -> {
+            val base = item.chronoBase ?: 0L
+            val ms = if (item.countDown) base - System.currentTimeMillis() else System.currentTimeMillis() - base
+            txt(if (ms >= 3_600_000L) 7 else 5, 15f)
+        }
+        Kind.CALL -> txt(5, 15f)
+        Kind.TORCH -> txt(5, 16f)
+        Kind.PROGRESS, Kind.LIVE -> h - 12f
+        Kind.CHARGING, Kind.LOW_BATTERY -> txt(4, 14f) + 6f + 24f
+        Kind.RINGER -> txt(item.title.length, 14f)
+        Kind.DND -> txt(item.subtitle.length, 13f)
+        Kind.BLUETOOTH -> if (item.value != null) txt(4, 13f) + 6f + 24f else txt(item.subtitle.length, 12f)
+        Kind.UNLOCK -> 0f
+        else -> min(txt(item.title.length, 13f), 120f)
+    } + 6f
+    val auto = 2 * max(left, right) + h * 0.95f + 10f
+    return if (cfg.autoWidth) auto.coerceIn(h * 2.4f, 380f) else cfg.compactWidth
 }
 
 fun islandWindowSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
@@ -639,16 +662,8 @@ private fun CompactContent(item: IslandItem, cfg: Settings, media: MediaInfo?, a
         side = 5.dp,
         left = {
             SmallBadge(item, media, accent, fg, badge)
-            if (wide && item.kind != Kind.UNLOCK) {
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    item.title, color = fg, fontSize = cfg.ts(13f), fontWeight = FontWeight.SemiBold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
-            }
         },
         right = {
-            Spacer(Modifier.width(1.dp))
             when (item.kind) {
                 Kind.MEDIA -> if (cfg.visualizer) Visualizer(media?.playing ?: item.flag, accent) else
                     Icon(if (media?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = fg, modifier = Modifier.size(20.dp))
@@ -670,7 +685,7 @@ private fun CompactContent(item: IslandItem, cfg: Settings, media: MediaInfo?, a
                     Spacer(Modifier.width(6.dp))
                     MiniBattery(lv, accent, fg)
                 }
-                Kind.RINGER -> Text(if (wide) "" else item.title, color = accent, fontSize = cfg.ts(14f), fontWeight = FontWeight.SemiBold)
+                Kind.RINGER -> Text(item.title, color = accent, fontSize = cfg.ts(14f), fontWeight = FontWeight.SemiBold)
                 Kind.DND -> Text(item.subtitle, color = if (item.flag) accent else fg.copy(alpha = 0.7f), fontSize = cfg.ts(13f), fontWeight = FontWeight.SemiBold)
                 Kind.BLUETOOTH -> {
                     val v = item.value
@@ -680,6 +695,7 @@ private fun CompactContent(item: IslandItem, cfg: Settings, media: MediaInfo?, a
                 Kind.UNLOCK -> {}
                 else -> Text(item.title, color = fg, fontSize = cfg.ts(13f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            Spacer(Modifier.width(6.dp))
         }
     )
 }
@@ -718,23 +734,30 @@ private fun NotifIcon(item: IslandItem, accent: Color, size: Dp) {
 @Composable
 private fun ActionChips(item: IslandItem, accent: Color, fg: Color, cfg: Settings, call: Boolean = false) {
     if (item.actions.isEmpty()) return
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (call) 14.dp else 8.dp)) {
         item.actions.forEachIndexed { idx, a ->
             val color = when {
                 call && item.actions.size >= 2 && idx == 0 -> Color(0xFFFF453A)
                 call && idx == item.actions.lastIndex -> Color(0xFF34C759)
                 else -> fg.copy(alpha = 0.14f)
             }
-            Box(
+            val bh = if (call) 48.dp else 36.dp
+            Row(
                 Modifier
                     .weight(1f)
-                    .height(36.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .height(bh)
+                    .clip(RoundedCornerShape(bh / 2))
                     .background(color)
                     .clickable { Util.tick(); Island.handleAction(a, item) },
-                contentAlignment = Alignment.Center
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(a.label, color = if (call) Color.White else fg, fontSize = cfg.ts(13f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (call) {
+                    val decline = item.actions.size >= 2 && idx == 0
+                    Icon(if (decline) Icons.Rounded.CallEnd else Icons.Rounded.Call, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(a.label, color = if (call) Color.White else fg, fontSize = cfg.ts(if (call) 15f else 13f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -1093,6 +1116,8 @@ fun IslandPreview(modifier: Modifier = Modifier) {
     val s by Island.state.collectAsState()
     val cfg by Prefs.state.collectAsState()
     val media by Island.media.collectAsState()
+    val live by Island.serviceActive.collectAsState()
+    if (live) return
     // Στην προεπισκόπηση δείχνουμε πάντα το νησάκι, ακόμη και σε landscape/lock.
     val d = Island.resolve(s.copy(landscape = false, locked = false), cfg.copy(enabled = true))
     Box(modifier, contentAlignment = Alignment.TopCenter) {

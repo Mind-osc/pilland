@@ -98,6 +98,8 @@ object Island {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val state = MutableStateFlow(IslandState())
     val media = MutableStateFlow<MediaInfo?>(null)
+    /** true όταν τρέχει το πραγματικό overlay. */
+    val serviceActive = MutableStateFlow(false)
 
     @Volatile var mediaController: MediaController? = null
     var serviceRef: WeakReference<IslandService>? = null

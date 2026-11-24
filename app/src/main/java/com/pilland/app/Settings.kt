@@ -70,6 +70,7 @@ data class Settings(
     val offsetY: Float = 0f,
     val pillHeight: Float = 36f,
     val compactWidth: Float = 210f,
+    val autoWidth: Boolean = true,
     val expandedWidth: Float = 360f,
     val cornerPercent: Float = 100f,
     // Εμφάνιση
@@ -150,6 +151,7 @@ object Prefs {
             offsetY = sp.getFloat("offsetY", d.offsetY),
             pillHeight = sp.getFloat("pillHeight", d.pillHeight),
             compactWidth = sp.getFloat("compactWidth", d.compactWidth),
+            autoWidth = sp.getBoolean("autoWidth", d.autoWidth),
             expandedWidth = sp.getFloat("expandedWidth", d.expandedWidth),
             cornerPercent = sp.getFloat("cornerPercent", d.cornerPercent),
             idleStyle = sp.getInt("idleStyle", d.idleStyle),
@@ -195,6 +197,7 @@ object Prefs {
             .putFloat("offsetY", s.offsetY)
             .putFloat("pillHeight", s.pillHeight)
             .putFloat("compactWidth", s.compactWidth)
+            .putBoolean("autoWidth", s.autoWidth)
             .putFloat("expandedWidth", s.expandedWidth)
             .putFloat("cornerPercent", s.cornerPercent)
             .putInt("idleStyle", s.idleStyle)

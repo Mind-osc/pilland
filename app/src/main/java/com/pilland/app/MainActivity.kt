@@ -208,7 +208,8 @@ private fun SettingsScreen(resumeTick: Int) {
                 SliderRow("Οριζόντια μετατόπιση", cfg.offsetX, -80f..80f, "%.0f dp") { v -> Prefs.update { it.copy(offsetX = v) } }
                 SliderRow("Κάθετη μετατόπιση", cfg.offsetY, -30f..80f, "%.0f dp") { v -> Prefs.update { it.copy(offsetY = v) } }
                 SliderRow("Ύψος", cfg.pillHeight, 24f..56f, "%.0f dp") { v -> Prefs.update { it.copy(pillHeight = v) } }
-                SliderRow("Πλάτος (compact)", cfg.compactWidth, 130f..330f, "%.0f dp") { v -> Prefs.update { it.copy(compactWidth = v) } }
+                SwitchRow("Αυτόματο πλάτος (ανάλογα με το περιεχόμενο)", cfg.autoWidth) { v -> Prefs.update { it.copy(autoWidth = v) } }
+                if (!cfg.autoWidth) SliderRow("Πλάτος (compact)", cfg.compactWidth, 110f..330f, "%.0f dp") { v -> Prefs.update { it.copy(compactWidth = v) } }
                 SliderRow("Πλάτος (ανοιχτό)", cfg.expandedWidth, 260f..400f, "%.0f dp") { v -> Prefs.update { it.copy(expandedWidth = v) } }
                 SliderRow("Στρογγύλεμα γωνιών", cfg.cornerPercent, 10f..100f, "%.0f%%") { v -> Prefs.update { it.copy(cornerPercent = v) } }
                 SmallButton("Επαναφορά θέσης στην κάμερα") { Prefs.update { it.copy(offsetX = 0f, offsetY = 0f) } }

@@ -165,6 +165,7 @@ class IslandService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         Island.serviceRef = WeakReference(this)
+        Island.serviceActive.value = true
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         Island.setLandscape(resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
         computeCutout()
@@ -451,7 +452,7 @@ class IslandService : AccessibilityService() {
         root = null
         owner.stop()
         scope.cancel()
-        if (Island.service === this) Island.serviceRef = null
+        if (Island.service === this) { Island.serviceRef = null; Island.serviceActive.value = false }
         super.onDestroy()
     }
 
