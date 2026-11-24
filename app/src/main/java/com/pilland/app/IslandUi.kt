@@ -1177,7 +1177,7 @@ private const val TILE_H = 54f
 private fun Modifier.fromCamera(cfg: Settings, cx: Float, cy: Float, index: Int, cardW: Float = cfg.expandedWidth): Modifier = composed {
     val p = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        delay((index * 32L / cfg.animSpeed.coerceAtLeast(0.3f)).toLong())
+        // Όλα μαζί, ταυτόχρονα από την κάμερα
         val (st, dmp) = cfg.spring()
         p.animateTo(1f, spring(dmp.coerceAtLeast(0.55f), (st * 0.7f).coerceIn(150f, 900f)))
     }
