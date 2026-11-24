@@ -222,6 +222,14 @@ fun islandOffsetX(d: Display, cfg: Settings): Float {
     return (r - l) / 2f
 }
 
+/** Περιοχή αφής (dp, ως προς το κέντρο της κάμερας): αριστερά, δεξιά, ύψος. */
+fun islandTouchRect(d: Display, cfg: Settings, reply: Boolean): Triple<Float, Float, Float> {
+    val (w, h) = islandSize(d, cfg, reply)
+    val ox = islandOffsetX(d, cfg)
+    val sec = if (d.secondary != null && cfg.splitBubble && (d.mode == Mode.COMPACT || d.mode == Mode.WIDE)) cfg.pillHeight + 6f else 0f
+    return Triple(ox - w / 2f - 6f, ox + w / 2f + 6f + sec, h)
+}
+
 fun islandWindowSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
     val (w, h) = islandSize(d, cfg, reply)
     val pad = IslandService.WINDOW_PAD

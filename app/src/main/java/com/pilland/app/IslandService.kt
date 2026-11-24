@@ -21,6 +21,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.widget.FrameLayout
@@ -145,15 +146,20 @@ object Torch {
 class IslandService : AccessibilityService() {
 
     private var wm: WindowManager? = null
-    private var root: FrameLayout? = null
-    private var params: WindowManager.LayoutParams? = null
+    /** Παράθυρο εικόνας: σταθερό, όλο το πλάτος, δεν δέχεται αγγίγματα. */
+    private var visual: FrameLayout? = null
+    private var vParams: WindowManager.LayoutParams? = null
+    /** Αόρατο παράθυρο αφής, όσο το νησάκι· προωθεί τα αγγίγματα στο παράθυρο εικόνας. */
+    private var touch: View? = null
+    private var tParams: WindowManager.LayoutParams? = null
     private val owner = OverlayOwner()
     private val scope = MainScope()
     private var shrinkJob: Job? = null
-    private var curW = 0
-    private var curH = 0
+    private var curRect = Rect()
     private var cutout = Rect()
     private var screenW = 0
+    private var screenH = 0
+    private var lastSpec: WindowSpec? = null
     private var lastLowWarn = 101
 
     private val receiver = object : BroadcastReceiver() {
@@ -177,7 +183,7 @@ class IslandService : AccessibilityService() {
             combine(Island.state, Prefs.state) { s, cfg ->
                 val d = Island.resolve(s, cfg)
                 WindowSpec(
-                    size = islandWindowSize(d, cfg, s.replyKey != null),
+                    rect = islandTouchRect(d, cfg, s.replyKey != null),
                     touchable = d.mode != Mode.HIDDEN,
                     focusable = s.replyKey != null,
                     offX = cfg.offsetX, offY = cfg.offsetY, pill = cfg.pillHeight,
@@ -188,7 +194,8 @@ class IslandService : AccessibilityService() {
     }
 
     private data class WindowSpec(
-        val size: Pair<Float, Float>,
+        /** (αριστερά, δεξιά, ύψος) σε dp, σε σχέση με το κέντρο της κάμερας. */
+        val rect: Triple<Float, Float, Float>,
         val touchable: Boolean,
         val focusable: Boolean,
         val offX: Float,
@@ -204,6 +211,7 @@ class IslandService : AccessibilityService() {
         try {
             val metrics = w.currentWindowMetrics
             screenW = metrics.bounds.width()
+            screenH = metrics.bounds.height()
             val dc = metrics.windowInsets.displayCutout
             val r = dc?.boundingRects?.minByOrNull { it.top }
             cutout = if (r != null && !r.isEmpty) Rect(r) else {
@@ -212,15 +220,61 @@ class IslandService : AccessibilityService() {
             }
         } catch (_: Throwable) {
             screenW = resources.displayMetrics.widthPixels
+            screenH = resources.displayMetrics.heightPixels
             val cx = screenW / 2
             cutout = Rect(cx - dp(14f), dp(10f), cx + dp(14f), dp(38f))
         }
     }
 
+    private fun visualFlags(focusable: Boolean): Int {
+        var f = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+        if (!focusable) f = f or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        return f
+    }
+
+    private fun touchFlags(touchable: Boolean): Int {
+        var f = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+        if (!touchable) f = f or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        return f
+    }
+
     private fun createOverlay() {
         val w = wm ?: return
         owner.start()
-        val frame = object : FrameLayout(this) {
+
+        // ---- εικόνα
+        val frame = FrameLayout(this)
+        val cv = ComposeView(this).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            setContent { OverlayRoot() }
+        }
+        frame.setViewTreeLifecycleOwner(owner)
+        frame.setViewTreeSavedStateRegistryOwner(owner)
+        frame.addView(cv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        val vp = WindowManager.LayoutParams(
+            screenW, (screenH * 0.75f).toInt(),
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            visualFlags(false),
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            title = "Pilland"
+        }
+        vParams = vp
+        positionVisual(Prefs.value.offsetX, Prefs.value.offsetY, Prefs.value.pillHeight)
+        try { w.addView(frame, vp); visual = frame } catch (_: Throwable) {}
+
+        // ---- αφή
+        val t = object : View(this) {
             override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
                 if (ev.actionMasked == MotionEvent.ACTION_OUTSIDE) {
                     val s = Island.state.value
@@ -229,100 +283,91 @@ class IslandService : AccessibilityService() {
                     return false
                 }
                 if (ev.actionMasked == MotionEvent.ACTION_DOWN) Island.poke()
-                return super.dispatchTouchEvent(ev)
+                val root = visual ?: return false
+                val tp = tParams ?: return false
+                val v = vParams ?: return false
+                val e = MotionEvent.obtain(ev)
+                e.offsetLocation((tp.x - v.x).toFloat(), (tp.y - v.y).toFloat())
+                root.dispatchTouchEvent(e)
+                e.recycle()
+                return true
             }
         }
-        val cv = ComposeView(this).apply {
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-            setContent { OverlayRoot() }
-        }
-        frame.setViewTreeLifecycleOwner(owner)
-        frame.setViewTreeSavedStateRegistryOwner(owner)
-        frame.addView(cv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-
-        val (wDp, hDp) = islandWindowSize(Island.current(), Prefs.value, false)
-        curW = dp(wDp); curH = dp(hDp)
-        val p = WindowManager.LayoutParams(
-            curW, curH,
+        val tp = WindowManager.LayoutParams(
+            1, 1,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            baseFlags(touchable = true, focusable = false),
+            touchFlags(true),
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            gravity = Gravity.TOP or Gravity.START
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            title = "Pilland"
+            title = "Pilland-touch"
         }
-        positionParams(p, Prefs.value.offsetX, Prefs.value.offsetY, Prefs.value.pillHeight)
-        params = p
-        root = frame
-        try {
-            w.addView(frame, p)
-        } catch (_: Throwable) {
-            root = null
-        }
+        tParams = tp
+        try { w.addView(t, tp); touch = t } catch (_: Throwable) {}
     }
 
-    private fun baseFlags(touchable: Boolean, focusable: Boolean): Int {
-        var f = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
-        if (!focusable) f = f or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-        if (!touchable) f = f or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        return f
-    }
-
-    private fun positionParams(p: WindowManager.LayoutParams, offX: Float, offY: Float, pill: Float) {
-        val cx = cutout.centerX()
-        val cy = cutout.centerY()
-        val desired = cx - screenW / 2 + dp(offX)
-        // Το παράθυρο δεν βγαίνει ποτέ έξω από την οθόνη (αλλιώς το Android το μετακινεί με καθυστέρηση).
-        val w = if (p.width > 0) p.width else curW
-        val maxX = ((screenW - w) / 2).coerceAtLeast(0)
-        val x = desired.coerceIn(-maxX, maxX)
-        p.x = x
-        p.y = cy - dp(pill) / 2 - dp(WINDOW_PAD) + dp(offY)
-        Island.windowShift.value = (desired - x) / resources.displayMetrics.density
+    /** Το παράθυρο εικόνας ξεκινά πάνω από την κάμερα· το νησάκι κεντράρεται σε αυτήν. */
+    private fun positionVisual(offX: Float, offY: Float, pill: Float) {
+        val vp = vParams ?: return
+        vp.x = 0
+        vp.width = screenW
+        vp.height = (screenH * 0.75f).toInt()
+        vp.y = cutout.centerY() - dp(pill) / 2 - dp(WINDOW_PAD) + dp(offY)
+        val camOffsetPx = cutout.centerX() - screenW / 2
+        Island.windowShift.value = camOffsetPx / resources.displayMetrics.density + offX
     }
 
     private fun applySpec(spec: WindowSpec) {
-        val p = params ?: return
-        val v = root ?: return
+        lastSpec = spec
         val w = wm ?: return
-        val tw = dp(spec.size.first).coerceAtMost(screenW)
-        val th = dp(spec.size.second)
-        p.flags = baseFlags(spec.touchable, spec.focusable)
-        p.softInputMode = if (spec.focusable) WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE else WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
-        positionParams(p, spec.offX, spec.offY, spec.pill)
+        val vp = vParams ?: return
+        val tp = tParams ?: return
+
+        // εικόνα: αλλάζει μόνο θέση/εστίαση, ποτέ πλάτος
+        val oldY = vp.y
+        val oldFlags = vp.flags
+        positionVisual(spec.offX, spec.offY, spec.pill)
+        vp.flags = visualFlags(spec.focusable)
+        vp.softInputMode = if (spec.focusable) WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE else WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
+        if (vp.y != oldY || vp.flags != oldFlags) try { w.updateViewLayout(visual, vp) } catch (_: Throwable) {}
+
+        // αφή: ακριβώς πάνω στο νησάκι
+        val camX = cutout.centerX() + dp(spec.offX)
+        val top = vp.y + dp(WINDOW_PAD) - dp(6f)
+        val (l, r, h) = spec.rect
+        val target = Rect(camX + dp(l), top, camX + dp(r), top + dp(h) + dp(12f))
+        tp.flags = touchFlags(spec.touchable)
         shrinkJob?.cancel()
-        val nw = maxOf(curW, tw)
-        val nh = maxOf(curH, th)
-        setSize(p, nw, nh)
-        positionParams(p, spec.offX, spec.offY, spec.pill)
-        try { w.updateViewLayout(v, p) } catch (_: Throwable) {}
-        if (tw < nw || th < nh) {
+        val grown = Rect(curRect).apply { if (isEmpty) set(target) else union(target) }
+        applyTouchRect(grown)
+        if (grown != target) {
             shrinkJob = scope.launch {
-                delay((950 / spec.speed.coerceAtLeast(0.3f)).toLong())
-                setSize(p, tw, th)
-                positionParams(p, spec.offX, spec.offY, spec.pill)
-                try { w.updateViewLayout(v, p) } catch (_: Throwable) {}
+                delay((700 / spec.speed.coerceAtLeast(0.3f)).toLong())
+                applyTouchRect(target)
             }
         }
     }
 
-    private fun setSize(p: WindowManager.LayoutParams, w: Int, h: Int) {
-        curW = w; curH = h
-        p.width = w; p.height = h
+    private fun applyTouchRect(r: Rect) {
+        val tp = tParams ?: return
+        curRect = Rect(r)
+        tp.x = r.left
+        tp.y = r.top
+        tp.width = r.width().coerceAtLeast(1)
+        tp.height = r.height().coerceAtLeast(1)
+        try { wm?.updateViewLayout(touch, tp) } catch (_: Throwable) {}
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         Island.setLandscape(newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE)
         computeCutout()
-        val p = params ?: return
-        positionParams(p, Prefs.value.offsetX, Prefs.value.offsetY, Prefs.value.pillHeight)
-        try { wm?.updateViewLayout(root, p) } catch (_: Throwable) {}
+        curRect = Rect()
+        val vp = vParams ?: return
+        positionVisual(Prefs.value.offsetX, Prefs.value.offsetY, Prefs.value.pillHeight)
+        try { wm?.updateViewLayout(visual, vp) } catch (_: Throwable) {}
+        lastSpec?.let { applySpec(it) }
     }
 
     // ---------------- system events ----------------
@@ -511,8 +556,9 @@ class IslandService : AccessibilityService() {
     override fun onDestroy() {
         try { unregisterReceiver(receiver) } catch (_: Throwable) {}
         Torch.unregister()
-        try { root?.let { wm?.removeView(it) } } catch (_: Throwable) {}
-        root = null
+        try { visual?.let { wm?.removeView(it) } } catch (_: Throwable) {}
+        try { touch?.let { wm?.removeView(it) } } catch (_: Throwable) {}
+        visual = null; touch = null
         owner.stop()
         scope.cancel()
         if (Island.service === this) { Island.serviceRef = null; Island.serviceActive.value = false }
