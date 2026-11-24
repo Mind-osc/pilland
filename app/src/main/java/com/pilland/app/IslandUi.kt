@@ -305,7 +305,7 @@ fun IslandView(
                 .size(w, h)
                 .clip(shape)
                 .background(bg)
-                .islandGlow(cfg.glow && d.mode != Mode.IDLE, accent, (cfg.glowWidth * min(pulse.value, 2f)).dp, cfg.glowAnimated, r, min(1f, 0.55f + pulse.value / 2.5f))
+                .islandGlow(cfg.glow && d.mode != Mode.IDLE, accent, cfg.glowWidth.dp, cfg.glowAnimated, r, min(1f, 0.55f + pulse.value / 2.5f))
                 .then(if (interactive) Modifier.islandGestures(d, cfg) { pressed = it } else Modifier)
         ) {
             AnimatedContent(
