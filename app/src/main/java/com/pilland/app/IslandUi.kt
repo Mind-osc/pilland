@@ -150,15 +150,15 @@ fun islandSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
         Mode.HIDDEN, Mode.IDLE -> h to h
         Mode.COMPACT, Mode.WIDE -> (if (item == null) h else compactWidthFor(item, cfg)) to h
         Mode.PEEK -> w to (h / 2f + 4f + 62f)
-        Mode.PANEL -> w to (h + 204f)
+        Mode.PANEL -> w to (h + 172f)
         Mode.EXPANDED -> w to (h + when (item?.kind) {
-            Kind.MEDIA -> 164f
-            Kind.CALL -> 112f
-            Kind.TIMER, Kind.STOPWATCH -> 112f
-            Kind.TORCH -> 104f
-            Kind.NOTIFICATION -> 116f + (if (reply) 52f else 0f)
-            Kind.PROGRESS, Kind.LIVE -> 108f + (if (reply) 52f else 0f)
-            else -> 88f
+            Kind.MEDIA -> 156f
+            Kind.CALL -> 106f
+            Kind.TIMER, Kind.STOPWATCH -> 106f
+            Kind.TORCH -> 96f
+            Kind.NOTIFICATION -> 108f + (if (reply) 52f else 0f)
+            Kind.PROGRESS, Kind.LIVE -> 102f + (if (reply) 52f else 0f)
+            else -> 80f
         })
     }
 }
@@ -794,7 +794,7 @@ private fun ExpandedContent(item: IslandItem, cfg: Settings, s: IslandState, med
                 else if (item.kind != Kind.NOTIFICATION && item.kind != Kind.CALL) Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
             }
         )
-        Column(Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, bottom = 18.dp)) {
+        Column(Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, bottom = 14.dp)) {
             when (item.kind) {
                 Kind.MEDIA -> MediaExpanded(item, cfg, media, accent, fg)
                 Kind.CALL -> {
@@ -1072,7 +1072,7 @@ private fun PanelContent(cfg: Settings, s: IslandState, accent: Color, fg: Color
                 ) { Icon(Icons.Rounded.Settings, null, tint = fg.copy(alpha = 0.8f), modifier = Modifier.size(18.dp)) }
             }
         )
-        Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             quickTiles.chunked(4).forEachIndexed { row, tiles ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     tiles.forEachIndexed { col, t ->
@@ -1096,7 +1096,7 @@ private fun PanelContent(cfg: Settings, s: IslandState, accent: Color, fg: Color
                                         }
                                     }
                                 }
-                                .padding(vertical = 10.dp, horizontal = 2.dp),
+                                .padding(vertical = 8.dp, horizontal = 2.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(t.icon, null, tint = if (active) Color.White else fg, modifier = Modifier.size(22.dp))
