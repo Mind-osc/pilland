@@ -207,10 +207,12 @@ private fun SettingsScreen(resumeTick: Int) {
             Section("Θέση & μέγεθος", Icons.Rounded.PhotoSizeSelectSmall) {
                 SliderRow("Οριζόντια μετατόπιση", cfg.offsetX, -80f..80f, "%.0f dp") { v -> Prefs.update { it.copy(offsetX = v) } }
                 SliderRow("Κάθετη μετατόπιση", cfg.offsetY, -30f..80f, "%.0f dp") { v -> Prefs.update { it.copy(offsetY = v) } }
+                Label("Τρόπος ανοίγματος")
+                Choice(listOf("Προς τα δεξιά", "Ισομετρικά"), if (cfg.asymCompact) 0 else 1) { v -> Prefs.update { it.copy(asymCompact = v == 0) } }
+                Spacer(Modifier.height(8.dp))
                 SliderRow("Απόσταση από την κάμερα", cfg.cameraGap, 8f..40f, "%.0f dp") { v -> Prefs.update { it.copy(cameraGap = v) } }
                 SliderRow("Ύψος", cfg.pillHeight, 24f..56f, "%.0f dp") { v -> Prefs.update { it.copy(pillHeight = v) } }
                 SwitchRow("Αυτόματο πλάτος (ανάλογα με το περιεχόμενο)", cfg.autoWidth) { v -> Prefs.update { it.copy(autoWidth = v) } }
-                if (cfg.autoWidth) SwitchRow("Μεγαλώνει μόνο προς τα δεξιά (χωρίς κενό αριστερά)", cfg.asymCompact) { v -> Prefs.update { it.copy(asymCompact = v) } }
                 if (!cfg.autoWidth) SliderRow("Πλάτος (compact)", cfg.compactWidth, 110f..330f, "%.0f dp") { v -> Prefs.update { it.copy(compactWidth = v) } }
                 SliderRow("Πλάτος (ανοιχτό)", cfg.expandedWidth, 260f..400f, "%.0f dp") { v -> Prefs.update { it.copy(expandedWidth = v) } }
                 SliderRow("Στρογγύλεμα γωνιών", cfg.cornerPercent, 10f..100f, "%.0f%%") { v -> Prefs.update { it.copy(cornerPercent = v) } }

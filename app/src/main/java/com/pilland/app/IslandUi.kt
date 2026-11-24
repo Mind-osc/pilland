@@ -189,7 +189,7 @@ private fun rightContentWidth(item: IslandItem, cfg: Settings): Float {
     }
 }
 
-fun isAsym(cfg: Settings) = cfg.autoWidth && cfg.asymCompact
+fun isAsym(cfg: Settings) = cfg.asymCompact
 
 /** Μισό κενό γύρω από την τρύπα της κάμερας στο ασύμμετρο νησάκι. */
 fun camGapHalf(cfg: Settings) = cfg.cameraGap
@@ -202,7 +202,7 @@ fun compactExtents(item: IslandItem, cfg: Settings): Pair<Float, Float> {
     if (isAsym(cfg)) {
         val g = camGapHalf(cfg)
         val l = 5f + left + g
-        val r = max(g + right + 5f, h / 2f + 4f)
+        val r = if (cfg.autoWidth) max(g + right + 5f, h / 2f + 4f) else max(cfg.compactWidth - l, h / 2f + 4f)
         return l to r
     }
     val w = if (cfg.autoWidth) (2 * max(left, right) + cfg.cameraGap * 2f + 10f).coerceIn(h * 2.4f, 380f) else cfg.compactWidth
