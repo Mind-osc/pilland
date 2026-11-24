@@ -789,7 +789,7 @@ private fun NotifIcon(item: IslandItem, accent: Color, size: Dp) {
 @Composable
 private fun ActionChips(item: IslandItem, accent: Color, fg: Color, cfg: Settings, call: Boolean = false) {
     if (item.actions.isEmpty()) return
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (call) 14.dp else 8.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (call) 12.dp else 8.dp)) {
         item.actions.forEachIndexed { idx, a ->
             val color = when {
                 call && item.actions.size >= 2 && idx == 0 -> Color(0xFFFF453A)
@@ -838,11 +838,13 @@ private fun ExpandedContent(item: IslandItem, cfg: Settings, s: IslandState, med
                 else if (item.kind != Kind.NOTIFICATION && item.kind != Kind.CALL) Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
             }
         )
-        Column(Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, bottom = 14.dp)) {
+        val callCard = item.kind == Kind.CALL && item.actions.isNotEmpty()
+        val sideInset = if (callCard) 14.dp else EDGE
+        Column(Modifier.fillMaxWidth().padding(start = sideInset, end = sideInset, bottom = 14.dp)) {
             when (item.kind) {
                 Kind.MEDIA -> MediaExpanded(item, cfg, media, accent, fg)
                 Kind.CALL -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.padding(horizontal = EDGE - sideInset), verticalAlignment = Alignment.CenterVertically) {
                         SmallBadge(item, media, accent, fg, 42.dp)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
