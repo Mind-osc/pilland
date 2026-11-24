@@ -178,7 +178,7 @@ class IslandService : AccessibilityService() {
                 val d = Island.resolve(s, cfg)
                 WindowSpec(
                     size = islandWindowSize(d, cfg, s.replyKey != null),
-                    touchable = !(d.mode == Mode.HIDDEN || (d.mode == Mode.IDLE && cfg.idleStyle == 0)),
+                    touchable = d.mode != Mode.HIDDEN,
                     focusable = s.replyKey != null,
                     offX = cfg.offsetX, offY = cfg.offsetY, pill = cfg.pillHeight,
                     speed = cfg.animSpeed,
