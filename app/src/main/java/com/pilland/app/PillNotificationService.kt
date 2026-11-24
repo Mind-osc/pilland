@@ -192,7 +192,8 @@ class PillNotificationService : NotificationListenerService() {
         val actions = n.actions?.take(3)?.map { a ->
             IslandAction(label = a.title?.toString() ?: "", intent = a.actionIntent, remoteInput = a.remoteInputs?.firstOrNull { it.allowFreeFormInput })
         } ?: emptyList()
-        val icon = (large ?: iconPair?.first)?.asImageBitmap()
+        val icon = large?.asImageBitmap()
+        val appIcon = iconPair?.first?.asImageBitmap()
         val id = "n:" + sbn.key
 
         val showChrono = ex.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false)
@@ -204,7 +205,7 @@ class PillNotificationService : NotificationListenerService() {
 
         val base = IslandItem(
             id = id, kind = Kind.INFO, feature = Feature.NOTIFICATION, title = title.ifEmpty { appName },
-            subtitle = text.ifEmpty { sub }, appName = appName, icon = icon, accent = accent, actions = actions,
+            subtitle = text.ifEmpty { sub }, appName = appName, icon = icon, appIcon = appIcon, accent = accent, actions = actions,
             pkg = pkg, contentIntent = n.contentIntent, notifKey = sbn.key, postedAt = sbn.postTime,
         )
 

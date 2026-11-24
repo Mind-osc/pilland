@@ -149,7 +149,7 @@ fun islandSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
     return when (d.mode) {
         Mode.HIDDEN, Mode.IDLE -> h to h
         Mode.COMPACT, Mode.WIDE -> (if (item == null) h else compactWidthFor(item, cfg)) to h
-        Mode.PEEK -> w to (h + 76f)
+        Mode.PEEK -> w to (h / 2f + 4f + 62f)
         Mode.PANEL -> w to (h + 204f)
         Mode.EXPANDED -> w to (h + when (item?.kind) {
             Kind.MEDIA -> 164f
@@ -536,8 +536,8 @@ private fun iconFor(item: IslandItem, media: MediaInfo?): ImageVector = when (it
 /** Κυκλικό εικονίδιο (σαν το σχέδιο: μπλε φακός, μωβ κλεψύδρα…). */
 @Composable
 private fun SmallBadge(item: IslandItem, media: MediaInfo?, accent: Color, fg: Color, size: Dp) {
-    val art = if (item.kind == Kind.MEDIA) media?.art ?: item.icon else item.icon
-    if (art != null && (item.kind == Kind.MEDIA || item.kind == Kind.NOTIFICATION || item.kind == Kind.PROGRESS || item.kind == Kind.LIVE || item.kind == Kind.CALL && item.icon != null)) {
+    val art = if (item.kind == Kind.MEDIA) media?.art ?: item.icon else (item.icon ?: item.appIcon)
+    if (art != null && (item.kind == Kind.MEDIA || item.kind == Kind.NOTIFICATION || item.kind == Kind.PROGRESS || item.kind == Kind.LIVE || item.kind == Kind.INFO || item.kind == Kind.CALL && item.icon != null)) {
         Image(
             art, null,
             modifier = Modifier.size(size).clip(if (item.kind == Kind.MEDIA) RoundedCornerShape(size * 0.28f) else CircleShape),
@@ -703,20 +703,13 @@ private fun CompactContent(item: IslandItem, cfg: Settings, media: MediaInfo?, a
 @Composable
 private fun PeekContent(item: IslandItem, cfg: Settings, accent: Color, fg: Color) {
     val h = cfg.pillHeight.dp
-    Column(Modifier.fillMaxSize()) {
-        CameraBand(
-            h,
-            left = {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
-                Spacer(Modifier.width(6.dp))
-                Text(item.appName, color = fg.copy(alpha = 0.7f), fontSize = cfg.ts(11.5f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            },
-            right = { Text("τώρα", color = fg.copy(alpha = 0.5f), fontSize = cfg.ts(11.5f)) }
-        )
-        Row(Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE), verticalAlignment = Alignment.CenterVertically) {
-            NotifIcon(item, accent, 42.dp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+    // Χωρίς ετικέτα: το εικονίδιο της εφαρμογής λέει από πού ήρθε.
+    // Το κείμενο ξεκινά κάτω από την κάμερα, το εικονίδιο πιάνει όλο το ύψος αριστερά.
+    Row(Modifier.fillMaxSize().padding(start = 18.dp, end = EDGE), verticalAlignment = Alignment.CenterVertically) {
+        NotifIcon(item, accent, 48.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f).padding(top = h / 2 + 4.dp)) {
+            run {
                 Text(item.title, color = fg, fontSize = cfg.ts(14.5f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(item.subtitle, color = fg.copy(alpha = 0.72f), fontSize = cfg.ts(13f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
@@ -726,9 +719,29 @@ private fun PeekContent(item: IslandItem, cfg: Settings, accent: Color, fg: Colo
 
 @Composable
 private fun NotifIcon(item: IslandItem, accent: Color, size: Dp) {
-    val ic = item.icon
-    if (ic != null) Image(ic, null, Modifier.size(size).clip(RoundedCornerShape(size * 0.3f)), contentScale = ContentScale.Crop)
-    else BadgeCircle(accent, size) { Icon(Icons.Rounded.Notifications, null, tint = Color.White, modifier = Modifier.size(size * 0.55f)) }
+    val big = item.icon
+    val app = item.appIcon
+    Box(Modifier.size(size)) {
+        when {
+            big != null -> Image(big, null, Modifier.size(size).clip(CircleShape), contentScale = ContentScale.Crop)
+            app != null -> Image(app, null, Modifier.size(size).clip(RoundedCornerShape(size * 0.3f)), contentScale = ContentScale.Crop)
+            else -> BadgeCircle(accent, size) { Icon(Icons.Rounded.Notifications, null, tint = Color.White, modifier = Modifier.size(size * 0.55f)) }
+        }
+        // Φωτογραφία επαφής + μικρό σήμα εφαρμογής στη γωνία
+        if (big != null && app != null) {
+            val b = size * 0.42f
+            Image(
+                app, null,
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 3.dp, y = 3.dp)
+                    .size(b)
+                    .clip(RoundedCornerShape(b * 0.3f))
+                    .background(Color.Black),
+                contentScale = ContentScale.Crop
+            )
+        }
+    }
 }
 
 @Composable
@@ -770,14 +783,15 @@ private fun ExpandedContent(item: IslandItem, cfg: Settings, s: IslandState, med
         CameraBand(
             h,
             left = {
-                Text(
+                val quiet = item.kind == Kind.NOTIFICATION || item.kind == Kind.CALL || item.kind == Kind.PROGRESS || item.kind == Kind.LIVE
+                if (!quiet) Text(
                     if (item.kind == Kind.MEDIA) media?.appName ?: item.appName else item.appName.ifEmpty { kindLabel(item.kind) },
                     color = fg.copy(alpha = 0.65f), fontSize = cfg.ts(11.5f), maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
             },
             right = {
                 if (item.kind == Kind.MEDIA) Visualizer(media?.playing == true, accent)
-                else Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
+                else if (item.kind != Kind.NOTIFICATION && item.kind != Kind.CALL) Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
             }
         )
         Column(Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, bottom = 18.dp)) {

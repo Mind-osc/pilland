@@ -7,6 +7,7 @@ import android.media.session.PlaybackState
 import android.os.SystemClock
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -39,6 +40,8 @@ data class IslandItem(
     val subtitle: String = "",
     val appName: String = "",
     val icon: ImageBitmap? = null,
+    /** Εικονίδιο της εφαρμογής που έστειλε την ειδοποίηση. */
+    val appIcon: ImageBitmap? = null,
     val accent: Color? = null,
     /** 0..1 ή null. */
     val progress: Float? = null,
@@ -381,7 +384,18 @@ object Island {
             Kind.DND -> flash(IslandItem("dnd", Kind.DND, Feature.DND, title = "Μην ενοχλείτε", subtitle = "Ενεργό", flag = true, accent = Color(0xFF7D6BFF)))
             Kind.BLUETOOTH -> flash(IslandItem("bt", Kind.BLUETOOTH, Feature.BLUETOOTH, title = "Galaxy Buds", subtitle = "Συνδέθηκε", accent = Color(0xFF64D2FF)))
             Kind.UNLOCK -> flash(IslandItem("unlock", Kind.UNLOCK, Feature.UNLOCK, title = "Ξεκλείδωμα", accent = Color(0xFFFFFFFF)), 1.6f)
-            Kind.NOTIFICATION -> flash(IslandItem("demo_n$now", Kind.NOTIFICATION, Feature.NOTIFICATION, title = "Μαρία", subtitle = "Πάμε για καφέ στις 6; ☕", appName = "Messages", accent = Color(0xFF34C759)))
+            Kind.NOTIFICATION -> {
+                val pkg = listOf("com.viber.voip", "com.facebook.orca", "com.samsung.android.messaging", "com.google.android.apps.messaging", "com.whatsapp")
+                    .firstOrNull { Util.appIcon(it) != null }
+                val ic = pkg?.let { Util.appIcon(it) }
+                flash(
+                    IslandItem(
+                        "demo_n$now", Kind.NOTIFICATION, Feature.NOTIFICATION, title = "Μαρία", subtitle = "Πάμε για καφέ στις 6; ☕",
+                        appName = pkg?.let { Util.appName(it) } ?: "Messages", appIcon = ic?.first?.asImageBitmap(),
+                        accent = ic?.second ?: Color(0xFF34C759), pkg = pkg,
+                    )
+                )
+            }
             Kind.CALL -> upsert(IslandItem("demo_call", Kind.CALL, Feature.CALL, 100, title = "Γιάννης", subtitle = "Εισερχόμενη κλήση", appName = "Τηλέφωνο", accent = Color(0xFF34C759), autoExpand = true, actions = listOf(IslandAction("Απόρριψη", key = "demo:call_off"), IslandAction("Απάντηση", key = "demo:call_off"))))
             Kind.PROGRESS -> upsert(IslandItem("demo_prog", Kind.PROGRESS, Feature.PROGRESS, 45, title = "Λήψη αρχείου", subtitle = "video.mp4", appName = "Chrome", progress = 0.42f, accent = Color(0xFF64D2FF)))
             Kind.LIVE -> upsert(IslandItem("demo_live", Kind.LIVE, Feature.LIVE, 55, title = "Η παραγγελία έρχεται", subtitle = "Σε 12 λεπτά", appName = "efood", progress = 0.65f, accent = Color(0xFFFF2D55)))
