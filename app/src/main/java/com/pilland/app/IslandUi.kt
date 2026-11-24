@@ -31,6 +31,7 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -155,7 +156,7 @@ fun islandSize(d: Display, cfg: Settings, reply: Boolean): Pair<Float, Float> {
         Mode.COMPACT, Mode.WIDE -> (if (item == null) h else compactWidthFor(item, cfg)) to h
         Mode.PEEK -> w to (h / 2f + 4f + 62f)
         Mode.PANEL -> w to (h + 172f)
-        Mode.SHORTCUTS -> shortcutsCardWidth(cfg) to (h + max(1, visibleShortcuts(cfg).size) * SC_ROW + 8f)
+        Mode.SHORTCUTS -> shortcutsCardWidth(cfg) to (h + max(1, visibleShortcuts(cfg).size) * SC_ROW + 1f)
         Mode.EXPANDED -> w to (h + when (item?.kind) {
             Kind.MEDIA -> 156f
             Kind.CALL -> 106f
@@ -300,7 +301,10 @@ fun IslandView(
     val elev by animateDpAsState(if (small) 4.dp else 18.dp, label = "e")
 
     val accent = accentFor(d.item, cfg, media)
-    val bg = Color(cfg.bgColor).copy(alpha = cfg.bgAlpha)
+    val frostOn = cfg.frost && (d.mode == Mode.SHORTCUTS || d.mode == Mode.PANEL)
+    val bgA by animateFloatAsState(if (frostOn) min(cfg.bgAlpha, 0.58f) else cfg.bgAlpha, tween(260), label = "bga")
+    val frostK by animateFloatAsState(if (frostOn) 1f else 0f, tween(260), label = "fr")
+    val bg = Color(cfg.bgColor).copy(alpha = bgA)
     val fg = if (Color(cfg.bgColor).luminance() > 0.5f) Color.Black else Color.White
     val shape = RoundedCornerShape(r)
 
@@ -350,7 +354,13 @@ fun IslandView(
                 .size(w, h)
                 .clip(shape)
                 .background(bg)
-                .islandGlow(cfg.glow && d.mode != Mode.IDLE, accent, cfg.glowWidth.dp, cfg.glowAnimated, r, min(1f, 0.55f + pulse.value / 2.5f))
+                .then(
+                    if (frostK > 0.01f) Modifier
+                        .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.16f * frostK), Color.White.copy(alpha = 0.05f * frostK), Color.White.copy(alpha = 0.03f * frostK))))
+                        .border(0.8.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.35f * frostK), Color.White.copy(alpha = 0.08f * frostK))), shape)
+                    else Modifier
+                )
+                .islandGlow(cfg.glow && d.mode != Mode.IDLE && !frostOn, accent, cfg.glowWidth.dp, cfg.glowAnimated, r, min(1f, 0.55f + pulse.value / 2.5f))
                 .then(if (interactive) Modifier.islandGestures(d, cfg) { pressed = it } else Modifier)
         ) {
             AnimatedContent(
@@ -1117,7 +1127,7 @@ private const val SC_ROW = 56f
 fun shortcutsCardWidth(cfg: Settings): Float {
     val longest = visibleShortcuts(cfg).maxOfOrNull { Shortcuts.label(it).length } ?: 10
     // περιθώρια + εικονίδιο + κενό + κείμενο
-    return (10f * 2 + 8f * 2 + 36f + 12f + longest * 15f * 0.6f * cfg.textScale + 18f).coerceIn(190f, cfg.expandedWidth)
+    return (6f * 2 + 8f * 2 + 36f + 12f + longest * 15f * 0.6f * cfg.textScale + 18f).coerceIn(180f, cfg.expandedWidth)
 }
 
 fun visibleShortcuts(cfg: Settings): List<String> = cfg.shortcuts.filter { Shortcuts.installed(it) }
@@ -1138,8 +1148,8 @@ private fun ShortcutsContent(cfg: Settings, fg: Color, accent: Color) {
     val list = remember(cfg.shortcuts) { visibleShortcuts(cfg) }
     val cardW = shortcutsCardWidth(cfg)
     Column(
-        Modifier.fillMaxSize().padding(top = cfg.pillHeight.dp, start = 10.dp, end = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        Modifier.fillMaxSize().padding(top = cfg.pillHeight.dp, start = 6.dp, end = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         if (list.isEmpty()) {
             Text("Πρόσθεσε συντομεύσεις από τις ρυθμίσεις", color = fg.copy(alpha = 0.7f), fontSize = cfg.ts(13f), modifier = Modifier.padding(14.dp))
@@ -1150,10 +1160,10 @@ private fun ShortcutsContent(cfg: Settings, fg: Color, accent: Color) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .height((SC_ROW - 6f).dp)
-                    .fromCamera(cfg, cardW / 2f, cfg.pillHeight + i * SC_ROW + (SC_ROW - 6f) / 2f, i, cardW)
+                    .height((SC_ROW - 5f).dp)
+                    .fromCamera(cfg, cardW / 2f, cfg.pillHeight + i * SC_ROW + (SC_ROW - 5f) / 2f, i, cardW)
                     .clip(RoundedCornerShape(25.dp))
-                    .background(fg.copy(alpha = 0.09f))
+                    .background(fg.copy(alpha = if (cfg.frost) 0.12f else 0.09f))
                     .clickable { Util.tick(); Shortcuts.run(k) }
                     .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically

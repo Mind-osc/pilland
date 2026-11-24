@@ -243,6 +243,7 @@ private fun SettingsScreen(resumeTick: Int) {
                     SliderRow("Πάχος glow", cfg.glowWidth, 0.5f..4f, "%.1f dp") { v -> Prefs.update { it.copy(glowWidth = v) } }
                 }
                 SwitchRow("Σκιά", cfg.shadow) { v -> Prefs.update { it.copy(shadow = v) } }
+                SwitchRow("Frost (θαμπό γυαλί) σε συντομεύσεις & πάνελ", cfg.frost) { v -> Prefs.update { it.copy(frost = v) } }
                 SwitchRow("Δεύτερη φούσκα (2 δραστηριότητες μαζί)", cfg.splitBubble) { v -> Prefs.update { it.copy(splitBubble = v) } }
                 SwitchRow("Visualizer μουσικής", cfg.visualizer) { v -> Prefs.update { it.copy(visualizer = v) } }
                 SliderRow("Μέγεθος κειμένου", cfg.textScale, 0.8f..1.3f, "%.2fx") { v -> Prefs.update { it.copy(textScale = v) } }

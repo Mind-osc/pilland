@@ -89,6 +89,8 @@ data class Settings(
     val glowWidth: Float = 1.6f,
     val glowAnimated: Boolean = true,
     val shadow: Boolean = true,
+    /** Θαμπό γυαλί στις συντομεύσεις και στο πάνελ. */
+    val frost: Boolean = true,
     val textScale: Float = 1f,
     val splitBubble: Boolean = true,
     val visualizer: Boolean = true,
@@ -188,6 +190,7 @@ object Prefs {
             glowWidth = sp.getFloat("glowWidth", d.glowWidth),
             glowAnimated = sp.getBoolean("glowAnimated", d.glowAnimated),
             shadow = sp.getBoolean("shadow", d.shadow),
+            frost = sp.getBoolean("frost", d.frost),
             textScale = sp.getFloat("textScale", d.textScale),
             splitBubble = sp.getBoolean("splitBubble", d.splitBubble),
             visualizer = sp.getBoolean("visualizer", d.visualizer),
@@ -238,6 +241,7 @@ object Prefs {
             .putFloat("glowWidth", s.glowWidth)
             .putBoolean("glowAnimated", s.glowAnimated)
             .putBoolean("shadow", s.shadow)
+            .putBoolean("frost", s.frost)
             .putFloat("textScale", s.textScale)
             .putBoolean("splitBubble", s.splitBubble)
             .putBoolean("visualizer", s.visualizer)
